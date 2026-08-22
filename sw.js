@@ -1,15 +1,9 @@
 /* DealSpot service worker — app-shell caching + offline support */
-const CACHE = "dealspot-v1";
+const CACHE = "dealspot-v2";
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png",
-  "./icons/icon-maskable-192.png",
-  "./icons/icon-maskable-512.png",
-  "./icons/apple-touch-icon.png",
-  "./icons/favicon-32.png",
 ];
 
 self.addEventListener("install", (e) => {
