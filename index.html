@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#6c5ce7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DealSpot">
+<meta name="description" content="Track live discounts from Amazon, Walmart, Sam's Club, Best Buy, Target and more — with keyword price alerts.">
+<meta property="og:title" content="DealSpot — Live Discount Tracker">
+<meta property="og:description" content="Live deals & price drop alerts from Amazon, Walmart, Best Buy, Target and more.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="icons/icon-512.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<title>DealSpot — Live Discount Tracker</title>
+<style>
+  :root {
+    --bg: #f2f3f7;
+    --card: #ffffff;
+    --card2: #f9fafb;
+    --text: #1a1a2e;
+    --text2: #6b7280;
+    --border: #e5e7eb;
+    --accent: #6c5ce7;
+    --accent2: #8b5cf6;
+    --green: #10b981;
+    --red: #ef4444;
+    --orange: #f59e0b;
+    --shadow: 0 4px 20px rgba(0,0,0,0.08);
+    --radius: 16px;
+    --nav-h: 68px;
+  }
+  [data-theme="dark"] {
+    --bg: #0e0e16;
+    --card: #1a1a27;
+    --card2: #232334;
+    --text: #f2f2f7;
+    --text2: #9ca3af;
+    --border: #2d2d40;
+    --shadow: 0 4px 24px rgba(0,0,0,0.5);
+  }
+  @media (prefers-color-scheme: dark) {
+    [data-theme="system"] {
+      --bg: #0e0e16; --card: #1a1a27; --card2: #232334;
+      --text: #f2f2f7; --text2: #9ca3af; --border: #2d2d40;
+      --shadow: 0 4px 24px rgba(0,0,0,0.5);
+    }
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: #d1d5db; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    color:var(--text); overflow:hidden;
+  }
+  /* Force all text + native form controls to follow the theme text color */
+  [data-theme="dark"] body { color-scheme: dark; }
+  [data-theme="light"] body { color-scheme: light; }
+  input, select, textarea, button, optgroup, option { color:var(--text); font-family:inherit; }
+  [data-theme="dark"] input,
+  [data-theme="dark"] select,
+  [data-theme="dark"] textarea,
+  [data-theme="dark"] optgroup,
+  [data-theme="dark"] option {
+    background-color: var(--card2);
+    color: var(--text);
+  }
+  /* Safety net: any stray element with hardcoded dark text inverts in dark mode */
+  [data-theme="dark"] .row-label,
+  [data-theme="dark"] .notif-title,
+  [data-theme="dark"] .modal h3,
+  [data-theme="dark"] .overlay-header h2,
+  [data-theme="dark"] .section-title h2,
+  [data-theme="dark"] .empty h3,
+  [data-theme="dark"] .card-name,
+  [data-theme="dark"] .price-sale,
+  [data-theme="dark"] .logo-text h1,
+  [data-theme="dark"] .statusbar,
+  [data-theme="dark"] .store-toggle,
+  [data-theme="dark"] .kw,
+  [data-theme="dark"] .kw-input input { color: var(--text); }
+  .phone {
+    width:100%; max-width:420px; height:100vh; max-height:900px; background:var(--bg);
+    position:relative; overflow:hidden; box-shadow:0 25px 80px rgba(0,0,0,0.3);
+    display:flex; flex-direction:column;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  /* Prevent iOS auto-zoom on input focus (needs >=16px font) */
+  input, select, textarea { font-size:16px; }
+  @media (min-width:480px){ .phone{ border-radius:40px; height:880px; border:10px solid #1a1a2e; } }
+
+  .statusbar { display:flex; justify-content:space-between; align-items:center; padding:10px 24px 4px; font-size:13px; font-weight:600; flex-shrink:0; }
+  .statusbar .icons { display:flex; gap:6px; align-items:center; }
+  .statusbar svg { width:16px; height:16px; }
+
+  .header { padding:8px 20px 14px; flex-shrink:0; background:var(--bg); }
+  .header-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .logo { display:flex; align-items:center; gap:8px; }
+  .logo-icon { width:38px; height:38px; border-radius:11px; background:linear-gradient(135deg,var(--accent),var(--accent2)); display:flex; align-items:center; justify-content:center; font-size:20px; box-shadow:0 4px 12px rgba(108,92,231,0.4); }
+  .logo-text h1 { font-size:20px; font-weight:800; letter-spacing:-0.5px; }
+  .logo-text p { font-size:11px; color:var(--text2); font-weight:500; display:flex; align-items:center; gap:5px; }
+  .icon-btn { width:40px; height:40px; border-radius:50%; background:var(--card); display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow); cursor:pointer; border:none; color:var(--text); position:relative; }
+  .icon-btn svg { width:20px; height:20px; }
+  .nav-badge { position:absolute; top:6px; right:6px; min-width:16px; height:16px; padding:0 4px; background:var(--red); color:#fff; font-size:10px; font-weight:800; border-radius:8px; display:flex; align-items:center; justify-content:center; border:2px solid var(--card); }
+
+  .search-wrap { display:flex; align-items:center; gap:10px; background:var(--card); border-radius:14px; padding:11px 16px; box-shadow:var(--shadow); }
+  .search-wrap svg { width:18px; height:18px; color:var(--text2); flex-shrink:0; }
+  .search-wrap input { border:none; outline:none; background:transparent; flex:1; font-size:14px; color:var(--text); font-family:inherit; }
+  .search-wrap input::placeholder { color:var(--text2); }
+  .filter-btn { width:34px; height:34px; border-radius:10px; border:none; background:linear-gradient(135deg,var(--accent),var(--accent2)); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .filter-btn svg { width:16px; height:16px; color:#fff; }
+
+  .store-tabs { display:flex; gap:8px; padding:4px 20px 12px; overflow-x:auto; flex-shrink:0; scrollbar-width:none; }
+  .store-tabs::-webkit-scrollbar { display:none; }
+  .store-tab { display:flex; align-items:center; gap:7px; padding:9px 16px; border-radius:12px; border:none; background:var(--card); font-size:13px; font-weight:600; color:var(--text2); cursor:pointer; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,0.04); transition:all .2s; font-family:inherit; }
+  .store-tab.active { color:#fff; transform:translateY(-1px); }
+  .store-tab .dot { width:8px; height:8px; border-radius:50%; }
+  .store-tab[data-store="all"].active { background:linear-gradient(135deg,#6c5ce7,#8b5cf6); }
+  .store-tab[data-store="amazon"].active { background:linear-gradient(135deg,#131921,#232f3e); }
+  .store-tab[data-store="walmart"].active { background:linear-gradient(135deg,#0071DC,#004F9E); }
+  .store-tab[data-store="bestbuy"].active { background:linear-gradient(135deg,#0046BE,#00308A); }
+  .store-tab[data-store="target"].active { background:linear-gradient(135deg,#CC0000,#8B0000); }
+  .store-tab[data-store="other"].active { background:linear-gradient(135deg,#4b5563,#1f2937); }
+  .store-tab[data-store="watchlist"].active { background:linear-gradient(135deg,#ef4444,#dc2626); }
+
+  .chips { display:flex; gap:8px; padding:0 20px 12px; overflow-x:auto; flex-shrink:0; scrollbar-width:none; }
+  .chips::-webkit-scrollbar { display:none; }
+  .chip { padding:7px 14px; border-radius:20px; border:1.5px solid var(--border); background:var(--card); font-size:12px; font-weight:600; color:var(--text2); cursor:pointer; white-space:nowrap; font-family:inherit; transition:all .2s; }
+  .chip.active { background:var(--text); color:var(--bg); border-color:var(--text); }
+
+  .content { flex:1; overflow-y:auto; padding:0 16px 20px; scrollbar-width:none; }
+  .content::-webkit-scrollbar { display:none; }
+
+  .section-title { display:flex; align-items:center; justify-content:space-between; padding:4px 4px 12px; }
+  .section-title h2 { font-size:17px; font-weight:800; letter-spacing:-0.3px; }
+  .section-title span { font-size:12px; color:var(--text2); font-weight:600; }
+
+  .card-link { text-decoration:none; color:inherit; }
+  .card { background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:12px; overflow:hidden; display:flex; cursor:pointer; transition:transform .15s; position:relative; animation:fadeUp .3s ease both; border:1px solid transparent; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
+  .card:active { transform:scale(0.98); }
+  .card-img { width:115px; height:125px; flex-shrink:0; position:relative; display:flex; align-items:center; justify-content:center; font-size:48px; background:var(--card2); }
+  .card-img img { width:100%; height:100%; object-fit:cover; }
+  .discount-badge { position:absolute; top:8px; left:8px; background:var(--red); color:#fff; font-size:11px; font-weight:800; padding:3px 8px; border-radius:7px; letter-spacing:0.3px; box-shadow:0 2px 6px rgba(239,68,68,0.4); z-index:2; }
+  .local-badge { position:absolute; top:8px; right:8px; font-size:10px; font-weight:800; padding:3px 7px; border-radius:7px; letter-spacing:0.3px; z-index:2; box-shadow:0 2px 6px rgba(0,0,0,0.2); }
+  .local-badge.in-store { background:#10b981; color:#fff; }
+  .local-badge.ymmv { background:#f59e0b; color:#1a1a2e; }
+  .card-body { flex:1; padding:11px 12px; display:flex; flex-direction:column; min-width:0; }
+  .card-store { display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; width:fit-content; padding:2px 7px; border-radius:5px; }
+  .store-amazon { background:#fff3e0; color:#e67e00; }
+  .store-walmart { background:#e3f0ff; color:#0071DC; }
+  .store-bestbuy { background:#fff9db; color:#0046BE; }
+  .store-target { background:#ffe5e5; color:#CC0000; }
+  .store-samsclub { background:#e3f0ff; color:#0066b3; }
+  .store-ebay { background:#fff1e0; color:#E53238; }
+  .store-costco { background:#e8f4ff; color:#0066B3; }
+  .store-homedepot { background:#ffe7e0; color:#F96302; }
+  .store-lowes { background:#e3f0ff; color:#004990; }
+  .store-newegg { background:#fff3d6; color:#fc7600; }
+  .store-kohls { background:#ffeef3; color:#9e205c; }
+  .store-macys { background:#ffe5e5; color:#e11d48; }
+  .store-wayfair { background:#eef0ff; color:#7a3df0; }
+  .store-samsclub { background:#e3f0ff; color:#0066b3; }
+  .store-bjs { background:#fff2d6; color:#e07b00; }
+  .store-other { background:#f3f4f6; color:#6b7280; }
+  [data-theme="dark"] .store-amazon { background:#3a2a10; color:#ffb84d; }
+  [data-theme="dark"] .store-walmart { background:#0e2a4a; color:#5ab0ff; }
+  [data-theme="dark"] .store-bestbuy { background:#3a3a10; color:#ffe04d; }
+  [data-theme="dark"] .store-target,[data-theme="dark"] .store-macys { background:#3a1010; color:#ff6b6b; }
+  [data-theme="dark"] .store-other { background:#2d2d40; color:#b0b0c0; }
+  .live-dot { width:7px; height:7px; border-radius:50%; background:var(--green); display:inline-block; animation:pulse 1.8s infinite; }
+  @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(16,185,129,.4)} 70%{box-shadow:0 0 0 6px rgba(16,185,129,0)} 100%{box-shadow:0 0 0 0 rgba(16,185,129,0)} }
+  .card-name { font-size:13.5px; font-weight:600; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin-bottom:auto; }
+  .card-prices { display:flex; align-items:baseline; gap:7px; margin-top:6px; }
+  .price-sale { font-size:18px; font-weight:800; }
+  .price-orig { font-size:12.5px; color:var(--text2); text-decoration:line-through; }
+  .price-save { font-size:11px; font-weight:700; color:var(--green); }
+  .card-footer { display:flex; align-items:center; justify-content:space-between; margin-top:7px; gap:8px; }
+  .rating { display:flex; align-items:center; gap:3px; font-size:11px; color:var(--text2); font-weight:600; }
+  .star { color:var(--orange); }
+  .view-deal { display:inline-flex; align-items:center; gap:4px; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; font-size:11px; font-weight:800; letter-spacing:0.3px; padding:7px 11px; border-radius:9px; text-decoration:none; white-space:nowrap; }
+  .heart { width:32px; height:32px; border-radius:50%; border:none; background:var(--card2); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .2s; flex-shrink:0; }
+  .heart svg { width:16px; height:16px; color:var(--text2); transition:all .2s; }
+  .heart.active { background:#fee2e2; }
+  .heart.active svg { color:var(--red); fill:var(--red); }
+
+  .empty { text-align:center; padding:60px 20px; }
+  .empty-icon { font-size:56px; margin-bottom:14px; }
+  .empty h3 { font-size:17px; font-weight:700; margin-bottom:6px; }
+  .empty p { font-size:13px; color:var(--text2); line-height:1.5; }
+
+  .nav { height:var(--nav-h); background:var(--card); display:flex; align-items:center; justify-content:space-around; box-shadow:0 -4px 20px rgba(0,0,0,0.06); flex-shrink:0; }
+  .nav-item { display:flex; flex-direction:column; align-items:center; gap:3px; border:none; background:transparent; cursor:pointer; padding:6px 12px; color:var(--text2); font-size:10px; font-weight:600; font-family:inherit; transition:color .2s; position:relative; }
+  .nav-item svg { width:23px; height:23px; }
+  .nav-item.active { color:var(--accent); }
+  .nav-item.active .nav-dot { position:absolute; bottom:-2px; width:5px; height:5px; border-radius:50%; background:var(--accent); }
+
+  .fab { position:absolute; bottom:calc(var(--nav-h) + 18px); right:20px; width:54px; height:54px; border-radius:50%; border:none; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; font-size:28px; cursor:pointer; box-shadow:0 8px 24px rgba(108,92,231,0.5); display:flex; align-items:center; justify-content:center; z-index:50; transition:transform .2s; }
+  .fab:active { transform:scale(0.92); }
+
+  /* Overlay (full-screen page for Settings / Alerts) */
+  .overlay { position:absolute; inset:0; background:var(--bg); z-index:90; display:flex; flex-direction:column; transform:translateX(100%); transition:transform .3s cubic-bezier(.16,1,.3,1); }
+  .overlay.open { transform:translateX(0); }
+  .overlay-header { display:flex; align-items:center; gap:12px; padding:14px 18px; flex-shrink:0; border-bottom:1px solid var(--border); background:var(--bg); }
+  .overlay-header h2 { font-size:19px; font-weight:800; flex:1; }
+  .back-btn { width:38px; height:38px; border-radius:50%; border:none; background:var(--card); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--text); box-shadow:var(--shadow); }
+  .back-btn svg { width:20px; height:20px; }
+  .overlay-body { flex:1; overflow-y:auto; padding:16px 18px 30px; scrollbar-width:none; }
+  .overlay-body::-webkit-scrollbar { display:none; }
+
+  .group { background:var(--card); border-radius:14px; box-shadow:var(--shadow); margin-bottom:16px; overflow:hidden; }
+  .group-title { font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:0.6px; color:var(--text2); padding:14px 16px 6px; }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 16px; border-bottom:1px solid var(--border); }
+  .row:last-child { border-bottom:none; }
+  .row-label { font-size:14px; font-weight:600; }
+  .row-sub { font-size:12px; color:var(--text2); margin-top:2px; line-height:1.4; }
+  .row-left { flex:1; min-width:0; }
+
+  /* Toggle switch */
+  .switch { position:relative; width:46px; height:27px; flex-shrink:0; }
+  .switch input { opacity:0; width:0; height:0; }
+  .slider { position:absolute; inset:0; background:var(--border); border-radius:27px; cursor:pointer; transition:.2s; }
+  .slider::before { content:''; position:absolute; height:21px; width:21px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; box-shadow:0 1px 3px rgba(0,0,0,0.3); }
+  .switch input:checked + .slider { background:var(--accent); }
+  .switch input:checked + .slider::before { transform:translateX(19px); }
+
+  select.sel, input.inp { padding:9px 12px; border:1.5px solid var(--border); border-radius:10px; background:var(--card2); color:var(--text); font-size:14px; font-family:inherit; outline:none; }
+  select.sel:focus, input.inp:focus { border-color:var(--accent); }
+
+  .seg { display:flex; background:var(--card2); border-radius:10px; padding:3px; gap:2px; }
+  .seg button { flex:1; padding:8px; border:none; background:transparent; border-radius:8px; font-size:12px; font-weight:700; color:var(--text2); cursor:pointer; font-family:inherit; white-space:nowrap; }
+  .seg button.active { background:var(--card); color:var(--accent); box-shadow:0 1px 4px rgba(0,0,0,0.1); }
+
+  .kw-list { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+  .kw { display:inline-flex; align-items:center; gap:6px; background:var(--card2); border:1px solid var(--border); padding:6px 6px 6px 11px; border-radius:20px; font-size:13px; font-weight:600; }
+  .kw button { width:20px; height:20px; border-radius:50%; border:none; background:var(--border); color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; line-height:1; }
+  .kw-input { display:flex; gap:8px; margin-top:10px; }
+  .kw-input input { flex:1; padding:10px 13px; border:1.5px solid var(--border); border-radius:10px; background:var(--card2); color:var(--text); font-size:14px; font-family:inherit; outline:none; }
+  .kw-input button { padding:0 16px; border:none; border-radius:10px; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; font-weight:700; cursor:pointer; font-family:inherit; }
+
+  .store-toggles { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+  .store-toggle { display:flex; align-items:center; gap:8px; padding:9px 11px; background:var(--card2); border-radius:10px; font-size:13px; font-weight:600; cursor:pointer; border:1.5px solid transparent; }
+  .store-toggle.on { border-color:var(--accent); }
+  .store-toggle .dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+
+  .btn { padding:12px; border-radius:12px; border:none; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .btn-primary { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; }
+  .btn-ghost { background:var(--card2); color:var(--text); border:1px solid var(--border); }
+  .btn-danger { background:#fee2e2; color:var(--red); }
+  [data-theme="dark"] .btn-danger { background:#3a1010; }
+  .btn-block { width:100%; margin-bottom:10px; }
+
+  /* Notification list */
+  .notif { display:flex; gap:12px; padding:13px 16px; border-bottom:1px solid var(--border); cursor:pointer; background:var(--card); }
+  .notif:last-child { border-bottom:none; }
+  .notif.unread { background:rgba(108,92,231,0.07); }
+  [data-theme="dark"] .notif.unread { background:rgba(108,92,231,0.14); }
+  .notif-icon { width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+  .notif-body { flex:1; min-width:0; }
+  .notif-title { font-size:14px; font-weight:700; margin-bottom:2px; }
+  .notif-msg { font-size:12.5px; color:var(--text2); line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .notif-time { font-size:11px; color:var(--text2); margin-top:4px; }
+  .notif-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0; margin-top:6px; }
+
+  /* Modal */
+  .modal-overlay { position:absolute; inset:0; background:rgba(0,0,0,0.5); z-index:100; display:none; align-items:flex-end; backdrop-filter:blur(3px); }
+  .modal-overlay.open { display:flex; animation:fadeIn .2s; }
+  @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+  .modal { background:var(--card); width:100%; border-radius:24px 24px 0 0; padding:24px 20px 32px; animation:slideUp .3s cubic-bezier(.16,1,.3,1); max-height:85%; overflow-y:auto; }
+  @keyframes slideUp { from{transform:translateY(100%);} to{transform:translateY(0);} }
+  .modal-handle { width:40px; height:4px; background:var(--border); border-radius:2px; margin:0 auto 18px; }
+  .modal h3 { font-size:19px; font-weight:800; margin-bottom:18px; }
+  .field { margin-bottom:14px; }
+  .field label { display:block; font-size:12px; font-weight:700; color:var(--text2); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px; }
+  .field input, .field select { width:100%; padding:12px 14px; border:1.5px solid var(--border); border-radius:12px; font-size:14px; font-family:inherit; outline:none; background:var(--card2); color:var(--text); transition:border .2s; }
+  .field input:focus, .field select:focus { border-color:var(--accent); }
+  .modal-actions { display:flex; gap:10px; margin-top:8px; }
+  .btn-cancel { background:var(--card2); color:var(--text); }
+  .btn-save { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; }
+
+  /* Onboarding */
+  .onboarding { position:absolute; inset:0; z-index:300; background:linear-gradient(160deg,#6c5ce7,#8b5cf6 55%,#a855f7); display:flex; flex-direction:column; transform:translateY(100%); transition:transform .4s cubic-bezier(.16,1,.3,1); padding:calc(env(safe-area-inset-top) + 20px) 26px calc(env(safe-area-inset-bottom) + 24px); color:#fff; }
+  .onboarding.open { transform:translateY(0); }
+  .ob-top { display:flex; justify-content:flex-end; }
+  .ob-skip { background:rgba(255,255,255,.18); border:none; color:#fff; padding:8px 16px; border-radius:20px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .ob-center { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+  .ob-emoji { font-size:76px; margin-bottom:18px; filter:drop-shadow(0 8px 20px rgba(0,0,0,.25)); }
+  .ob-title { font-size:28px; font-weight:900; letter-spacing:-0.5px; margin-bottom:10px; }
+  .ob-sub { font-size:15px; line-height:1.55; opacity:.92; max-width:300px; }
+  .ob-dots { display:flex; gap:8px; margin:26px 0; }
+  .ob-dot { width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,.35); transition:all .2s; }
+  .ob-dot.active { width:24px; background:#fff; border-radius:5px; }
+  .ob-btn { width:100%; padding:16px; border:none; border-radius:16px; background:#fff; color:#6c5ce7; font-size:16px; font-weight:800; cursor:pointer; font-family:inherit; box-shadow:0 10px 30px rgba(0,0,0,.2); }
+  .ob-btn.secondary { background:rgba(255,255,255,.15); color:#fff; box-shadow:none; margin-top:10px; }
+  .ob-features { display:grid; grid-template-columns:1fr 1fr; gap:12px; width:100%; max-width:340px; margin-top:8px; }
+  .ob-feat { background:rgba(255,255,255,.12); border-radius:14px; padding:16px 12px; text-align:center; backdrop-filter:blur(6px); }
+  .ob-feat .ic { font-size:30px; margin-bottom:6px; }
+  .ob-feat .t { font-size:13px; font-weight:700; line-height:1.3; }
+  .ob-setup { width:100%; max-width:340px; text-align:left; }
+  .ob-opt { display:flex; align-items:center; gap:12px; background:rgba(255,255,255,.12); border-radius:14px; padding:14px; margin-bottom:10px; cursor:pointer; backdrop-filter:blur(6px); }
+  .ob-opt .ic { font-size:26px; }
+  .ob-opt .t { font-size:15px; font-weight:800; }
+  .ob-opt .d { font-size:12px; opacity:.85; }
+  .ob-opt.on { background:rgba(255,255,255,.25); box-shadow:inset 0 0 0 2px rgba(255,255,255,.6); }
+
+  /* What's-new modal (reuses .modal styling) */
+  .whatsnew li { display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); align-items:flex-start; }
+  .whatsnew li:last-child { border-bottom:none; }
+  .whatsnew .wn-ic { font-size:26px; line-height:1; flex-shrink:0; width:38px; text-align:center; }
+  .whatsnew .wn-t { font-size:14px; font-weight:700; margin-bottom:2px; }
+  .whatsnew .wn-d { font-size:12.5px; color:var(--text2); line-height:1.45; }
+  .whatsnew-version { display:inline-block; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; font-size:11px; font-weight:800; padding:4px 11px; border-radius:20px; margin-bottom:10px; letter-spacing:.3px; }
+
+  .toast { position:absolute; top:70px; left:50%; transform:translateX(-50%) translateY(-20px); background:#1a1a2e; color:#fff; padding:11px 22px; border-radius:12px; font-size:13px; font-weight:600; z-index:200; opacity:0; pointer-events:none; transition:all .3s; box-shadow:0 8px 24px rgba(0,0,0,0.3); max-width:90%; text-align:center; }
+  [data-theme="dark"] .toast { background:#f2f2f7; color:#1a1a2e; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* Legal / privacy */
+  .legal h3 { font-size:16px; font-weight:800; margin:18px 0 6px; }
+  .legal h3:first-child { margin-top:0; }
+  .legal p, .legal li { font-size:13.5px; line-height:1.6; color:var(--text2); margin-bottom:8px; }
+  .legal ul { padding-left:20px; margin-bottom:8px; }
+  .legal a { color:var(--accent); font-weight:600; }
+  .legal .updated { font-size:12px; color:var(--text2); margin-bottom:14px; }
+
+  /* Skeleton loading */
+  .skeleton { background:linear-gradient(90deg,var(--card2) 25%,var(--border) 37%,var(--card2) 63%); background-size:400% 100%; animation:shimmer 1.4s ease infinite; border-radius:10px; }
+  @keyframes shimmer { 0%{background-position:100% 0} 100%{background-position:-100% 0} }
+  .skel-card { display:flex; gap:12px; background:var(--card); border-radius:var(--radius); padding:12px; margin-bottom:12px; box-shadow:var(--shadow); }
+  .skel-img { width:115px; height:125px; border-radius:10px; flex-shrink:0; }
+  .skel-line { height:12px; border-radius:6px; margin-bottom:10px; }
+
+  /* Pull to refresh */
+  .ptr { height:0; overflow:hidden; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:12px; font-weight:700; transition:height .2s; }
+  .ptr.show { height:36px; }
+</style>
+</head>
+<body>
+<div class="phone" id="phone" data-theme="light">
+
+  <!-- Status bar -->
+  <div class="statusbar">
+    <span id="clock">9:41</span>
+    <div class="icons">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 22h20V2L2 22z" opacity=".3"/><path d="M2 22h20V2z"/></svg>
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3a4.237 4.237 0 00-6 0zm-4-4l2 2a7.074 7.074 0 0110 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 6H7c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm3 3v6h2V9h-2z"/></svg>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-top">
+      <div class="logo">
+        <div class="logo-icon">🏷️</div>
+        <div class="logo-text">
+          <h1>DealSpot</h1>
+          <p id="deal-count"><span class="live-dot"></span> Loading live deals…</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="icon-btn" id="refreshBtn" onclick="loadDeals(true)" title="Refresh deals">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+        </button>
+        <button class="icon-btn" onclick="openAlerts()" title="Alerts">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          <span class="nav-badge" id="alertBadge" style="display:none">0</span>
+        </button>
+      </div>
+    </div>
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="search" placeholder="Search products, brands...">
+      <button class="filter-btn" onclick="toggleSort()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Store tabs -->
+  <div class="store-tabs" id="storeTabs">
+    <button class="store-tab active" data-store="all">🔥 All Deals</button>
+    <button class="store-tab" data-store="local" id="localTab" style="display:none">📍 Near You</button>
+    <button class="store-tab" data-store="amazon"><span class="dot" style="background:#FF9900"></span> Amazon</button>
+    <button class="store-tab" data-store="walmart"><span class="dot" style="background:#0071DC"></span> Walmart</button>
+    <button class="store-tab" data-store="samsclub"><span class="dot" style="background:#0066b3"></span> Sam's Club</button>
+    <button class="store-tab" data-store="bestbuy"><span class="dot" style="background:#0046BE"></span> Best Buy</button>
+    <button class="store-tab" data-store="target"><span class="dot" style="background:#CC0000"></span> Target</button>
+    <button class="store-tab" data-store="other">🏬 Other</button>
+    <button class="store-tab" data-store="watchlist">❤️ Watchlist</button>
+  </div>
+
+  <!-- Filter chips -->
+  <div class="chips" id="chips">
+    <button class="chip active" data-filter="all">All</button>
+    <button class="chip" data-filter="50">50%+ Off</button>
+    <button class="chip" data-filter="30">30%+ Off</button>
+    <button class="chip" data-filter="20">20%+ Off</button>
+    <button class="chip" data-filter="tech">Tech</button>
+    <button class="chip" data-filter="home">Home</button>
+  </div>
+
+  <div class="ptr" id="ptr">⬇️ Pull down to refresh</div>
+  <div class="content" id="content"></div>
+
+  <button class="fab" onclick="openModal()">+</button>
+
+  <!-- Bottom nav -->
+  <div class="nav">
+    <button class="nav-item active" data-nav="deals" onclick="switchNav('deals')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+      Deals<div class="nav-dot"></div>
+    </button>
+    <button class="nav-item" data-nav="watchlist" onclick="switchNav('watchlist')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+      Watchlist
+    </button>
+    <button class="nav-item" data-nav="alerts" onclick="openAlerts()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+      Alerts
+    </button>
+    <button class="nav-item" data-nav="settings" onclick="openSettings()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Settings
+    </button>
+  </div>
+
+  <!-- Alerts overlay -->
+  <div class="overlay" id="alertsOverlay">
+    <div class="overlay-header">
+      <button class="back-btn" onclick="closeAlerts()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <h2>🔔 Alerts</h2>
+      <button class="icon-btn" style="box-shadow:none;width:auto;height:auto;padding:0 8px;font-size:12px;font-weight:700;color:var(--accent);background:none" onclick="markAllRead()">Mark all read</button>
+    </div>
+    <div class="overlay-body" id="alertsBody"></div>
+  </div>
+
+  <!-- Settings overlay -->
+  <div class="overlay" id="settingsOverlay">
+    <div class="overlay-header">
+      <button class="back-btn" onclick="closeSettings()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <h2>⚙️ Settings</h2>
+      <span style="width:38px"></span>
+    </div>
+    <div class="overlay-body" id="settingsBody"></div>
+  </div>
+
+  <!-- Legal / Privacy overlay -->
+  <div class="overlay" id="legalOverlay">
+    <div class="overlay-header">
+      <button class="back-btn" onclick="closeLegal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <h2>Privacy & Disclosures</h2>
+      <span style="width:38px"></span>
+    </div>
+    <div class="overlay-body legal" id="legalBody"></div>
+  </div>
+
+  <!-- Add product modal -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <h3>Track a New Deal</h3>
+      <div class="field">
+        <label>Product Name</label>
+        <input type="text" id="m-name" placeholder="e.g. Sony WH-1000XM5 Headphones">
+      </div>
+      <div class="field">
+        <label>Store</label>
+        <select id="m-store">
+          <option value="amazon">Amazon</option><option value="walmart">Walmart</option>
+          <option value="samsclub">Sam's Club</option>
+          <option value="bestbuy">Best Buy</option><option value="target">Target</option>
+          <option value="ebay">eBay</option><option value="costco">Costco</option>
+          <option value="homedepot">Home Depot</option><option value="lowes">Lowe's</option>
+          <option value="newegg">Newegg</option><option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field"><label>Product / Deal URL (optional — opens on tap)</label><input type="url" id="m-url" placeholder="https://www.amazon.com/dp/..."></div>
+      <div class="field"><label>Sale Price ($)</label><input type="number" id="m-sale" placeholder="248.00" step="0.01"></div>
+      <div class="field"><label>Original Price ($) (optional)</label><input type="number" id="m-orig" placeholder="399.99" step="0.01"></div>
+      <div class="field"><label>Image URL (optional)</label><input type="text" id="m-img" placeholder="https://..."></div>
+      <div class="field"><label>Category</label><select id="m-cat"><option value="tech">Tech</option><option value="home">Home</option><option value="other">Other</option></select></div>
+      <div class="modal-actions">
+        <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-save" onclick="saveProduct()">Save Deal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- What's new modal (shown after updates) -->
+  <div class="modal-overlay" id="whatsnewModal">
+    <div class="modal whatsnew" style="border-radius:22px">
+      <div class="modal-handle"></div>
+      <div style="text-align:center;margin-bottom:6px"><div style="font-size:44px">✨</div></div>
+      <h3 style="text-align:center">What's New</h3>
+      <div style="text-align:center;margin-bottom:14px"><span class="whatsnew-version" id="wnVersion">v2.0</span></div>
+      <ul id="wnList" style="list-style:none;padding:0;margin-bottom:18px"></ul>
+      <div class="modal-actions" style="padding:0">
+        <button class="btn btn-save" style="flex:1" onclick="closeWhatsNew()">Got it!</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- First-run onboarding -->
+  <div class="onboarding" id="onboarding">
+    <div class="ob-top">
+      <button class="ob-skip" onclick="skipOnboarding()">Skip</button>
+    </div>
+    <div class="ob-center" id="obCenter"></div>
+    <div>
+      <button class="ob-btn" id="obBtn" onclick="obNext()">Next</button>
+      <button class="ob-btn secondary" id="obBtn2" style="display:none" onclick="enableNotifsFromOnboarding()">🔔 Enable deal alerts</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ── Offline fallback deals ─────────────────────────────────────
+const FALLBACK = [
+  {id:1,name:"Sony WH-1000XM5 Wireless Noise Cancelling Headphones",store:"amazon",sale:248,orig:399.99,rating:4.7,reviews:18420,cat:"tech",emoji:"🎧",img:"https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&h=300&fit=crop",url:"https://www.amazon.com/dp/B0BTMWJ46Y"},
+  {id:2,name:"Apple AirPods Pro (2nd Gen) with MagSafe Case",store:"amazon",sale:169,orig:249,rating:4.8,reviews:54210,cat:"tech",emoji:"🎵",img:"https://images.unsplash.com/photo-1606220588913-b3aacb4d2f46?w=300&h=300&fit=crop",url:"https://www.amazon.com/dp/B0CHWRXH8B"},
+  {id:3,name:"Kindle Paperwhite 16 GB – 6.8\" Display",store:"amazon",sale:94.99,orig:149.99,rating:4.6,reviews:32100,cat:"tech",emoji:"📚",img:"https://images.unsplash.com/photo-1592434134753-a70baf7979d5?w=300&h=300&fit=crop",url:"https://www.amazon.com/dp/B08KTZ8249"},
+  {id:4,name:"Instant Pot Duo 7-in-1 Pressure Cooker 6 Qt",store:"amazon",sale:69.99,orig:119.99,rating:4.7,reviews:172000,cat:"home",emoji:"🍲",img:"https://images.unsplash.com/photo-1585515320310-259814833e62?w=300&h=300&fit=crop",url:"https://www.amazon.com/dp/B00FLYWNYQ"},
+  {id:5,name:"Samsung Galaxy Watch 6 Classic 47mm",store:"amazon",sale:259.99,orig:429.99,rating:4.5,reviews:4820,cat:"tech",emoji:"⌚",img:"https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=300&h=300&fit=crop",url:"https://www.amazon.com/dp/B0C7T7V9TB"},
+  {id:18,name:"VIZIO 55\" Class V-Series 4K Smart TV",store:"walmart",sale:298,orig:448,rating:4.5,reviews:8930,cat:"tech",emoji:"📺",img:"https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=300&h=300&fit=crop",url:"https://www.walmart.com/"},
+  {id:19,name:"Ninja AF101 Air Fryer 4 Quart",store:"walmart",sale:79,orig:129,rating:4.7,reviews:45600,cat:"home",emoji:"🍟",img:"https://images.unsplash.com/photo-1626074353765-517a681e40be?w=300&h=300&fit=crop",url:"https://www.walmart.com/"},
+  {id:20,name:"HyperX Cloud II Wired Gaming Headset",store:"walmart",sale:59,orig:99.99,rating:4.6,reviews:21300,cat:"tech",emoji:"🎮",img:"https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=300&h=300&fit=crop",url:"https://www.walmart.com/"},
+  {id:32,name:"Apple MacBook Air 13\" M3 8GB 256GB",store:"bestbuy",sale:899,orig:1099,rating:4.9,reviews:3420,cat:"tech",emoji:"💻",img:"https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300&h=300&fit=crop",url:"https://www.bestbuy.com/"},
+  {id:33,name:"LG 65\" C3 OLED evo 4K Smart TV",store:"bestbuy",sale:1296.99,orig:1899.99,rating:4.8,reviews:2180,cat:"tech",emoji:"📺",img:"https://images.unsplash.com/photo-1461151304267-38535e780c79?w=300&h=300&fit=crop",url:"https://www.bestbuy.com/"},
+  {id:34,name:"Dyson V15 Detect Cordless Stick Vacuum",store:"bestbuy",sale:499.99,orig:749.99,rating:4.7,reviews:6740,cat:"home",emoji:"🧹",img:"https://images.unsplash.com/photo-1558317374-067fb5f30001?w=300&h=300&fit=crop",url:"https://www.bestbuy.com/"},
+  {id:46,name:"Nintendo Switch Lite – Turquoise",store:"target",sale:169.99,orig:199.99,rating:4.8,reviews:7600,cat:"tech",emoji:"🎮",img:"https://images.unsplash.com/photo-1578303512597-81e6cc155b3e?w=300&h=300&fit=crop",url:"https://www.target.com/"},
+  {id:47,name:"Beats Studio Pro Wireless Headphones",store:"target",sale:169.99,orig:349.99,rating:4.5,reviews:4200,cat:"tech",emoji:"🎧",img:"https://images.unsplash.com/photo-1484704849700-f032a568e944?w=300&h=300&fit=crop",url:"https://www.target.com/"},
+  {id:48,name:"Dyson V11 Cordless Vacuum 60 Min Runtime",store:"target",sale:399.99,orig:599.99,rating:4.7,reviews:5600,cat:"home",emoji:"🧹",img:"https://images.unsplash.com/photo-1558317374-067fb5f30001?w=300&h=300&fit=crop",url:"https://www.target.com/"},
+];
+
+const STORE_LABELS = {amazon:"Amazon",walmart:"Walmart",samsclub:"Sam's Club",bestbuy:"Best Buy",target:"Target",ebay:"eBay",costco:"Costco",homedepot:"Home Depot",lowes:"Lowe's",newegg:"Newegg",bjs:"BJ's",kohls:"Kohl's",macys:"Macy's",wayfair:"Wayfair",other:"Other Store"};
+const STORE_DOT = {amazon:"#FF9900",walmart:"#0071DC",samsclub:"#0066b3",bestbuy:"#0046BE",target:"#CC0000",ebay:"#E53238",costco:"#0066B3",homedepot:"#F96302",lowes:"#004990",newegg:"#fc7600",other:"#6b7280"};
+const ALL_STORES = Object.keys(STORE_LABELS);
+
+// ── State & persistence ────────────────────────────────────────
+let currentStore = "all", currentFilter = "all", sortDesc = true;
+let isLive = false, lastUpdated = 0, liveDeals = [], refreshTimer = null;
+let firstLoad = true;
+let watchlist = JSON.parse(localStorage.getItem("ds_watchlist") || "[]");
+let customDeals = JSON.parse(localStorage.getItem("ds_custom") || "[]");
+let seenIds = JSON.parse(localStorage.getItem("ds_seen") || "[]");
+let notifs = JSON.parse(localStorage.getItem("ds_notifs") || "[]");
+
+const DEFAULT_SETTINGS = {
+  theme: "light",
+  defaultTab: "all",
+  defaultSort: "biggest",
+  hiddenStores: [],
+  hideThreadOnly: false,
+  localOnly: false,
+  zip: "",
+  city: "",
+  state: "",
+  refreshInterval: 5,
+  notifEnabled: false,
+  notifKeywords: [],
+  notifStores: ["amazon","walmart","samsclub","bestbuy","target"],
+  notifMinDiscount: 0,
+};
+let settings = Object.assign({}, DEFAULT_SETTINGS, JSON.parse(localStorage.getItem("ds_settings") || "{}"));
+
+function saveSettings() { localStorage.setItem("ds_settings", JSON.stringify(settings)); }
+function saveNotifs() { localStorage.setItem("ds_notifs", JSON.stringify(notifs.slice(0, 50))); }
+
+function allDeals() {
+  return [...liveDeals, ...customDeals.map(d => ({...d, live:false, url:d.url || d.threadUrl || "#"}))];
+}
+function pct(d) { return (d.sale && d.orig && d.orig > d.sale) ? Math.round((1 - d.sale/d.orig)*100) : 0; }
+function dealHref(d) { return (d && (d.url || d.threadUrl)) || "#"; }
+
+// ── Live data loading ──────────────────────────────────────────
+async function loadDeals(force) {
+  document.getElementById("deal-count").innerHTML = `<span class="live-dot"></span> Loading live deals…`;
+  try {
+    const res = await fetch("/api/deals" + (force ? "?refresh=1" : ""), {cache:"no-store"});
+    const data = await res.json();
+    if (data.deals && data.deals.length) {
+      const newOnes = data.deals.filter(d => !seenIds.includes(String(d.id)));
+      liveDeals = data.deals;
+      isLive = true; lastUpdated = data.updated || Date.now();
+      // Mark seen & run alerts only on subsequent loads (never on first).
+      if (!firstLoad) checkForAlerts(newOnes);
+      seenIds = data.deals.map(d => String(d.id));
+      localStorage.setItem("ds_seen", JSON.stringify(seenIds));
+      firstLoad = false;
+    } else throw new Error("empty");
+  } catch(e) {
+    liveDeals = FALLBACK; isLive = false; lastUpdated = Date.now(); firstLoad = false;
+    showToast("Live feed unavailable — showing sample deals");
+  }
+  render(); updateAlertBadge();
+}
+
+// ── Alert detection ────────────────────────────────────────────
+function dealMatchesAlerts(d) {
+  if (settings.notifKeywords.length) {
+    const hay = (d.name + " " + (d.storeLabel||"")).toLowerCase();
+    if (!settings.notifKeywords.some(k => hay.includes(k.toLowerCase()))) return false;
+  }
+  if (settings.notifStores.length && !settings.notifStores.includes(d.store)) return false;
+  if (settings.notifMinDiscount && pct(d) < settings.notifMinDiscount) return false;
+  return true;
+}
+function checkForAlerts(newDeals) {
+  if (!newDeals.length) return;
+  const matches = newDeals.filter(dealMatchesAlerts);
+  if (!matches.length) return;
+  matches.slice(0, 5).forEach(d => {
+    const n = {id:"n_"+Date.now()+"_"+Math.random().toString(36).slice(2,6), title:`New ${d.storeLabel||STORE_LABELS[d.store]} deal`, body:d.name, url:dealHref(d), dealId:String(d.id), ts:Date.now(), read:false};
+    notifs.unshift(n);
+    if (settings.notifEnabled) pushBrowserNotification(n);
+  });
+  saveNotifs(); updateAlertBadge();
+  if (matches.length) showToast(`🔔 ${matches.length} new deal${matches.length>1?"s":""} match your alerts`);
+}
+function pushBrowserNotification(n) {
+  try {
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification(n.title, {body:n.body, icon:"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏷️</text></svg>"});
+    }
+  } catch(e) {}
+}
+function updateAlertBadge() {
+  const unread = notifs.filter(n => !n.read).length;
+  const b = document.getElementById("alertBadge");
+  b.style.display = unread ? "flex" : "none";
+  b.textContent = unread > 99 ? "99+" : unread;
+}
+
+// ── Filtering / sorting ────────────────────────────────────────
+function getFiltered() {
+  let list = allDeals();
+  if (settings.hiddenStores.length) list = list.filter(d => !settings.hiddenStores.includes(d.store));
+  if (settings.hideThreadOnly) list = list.filter(d => d.url && !d.url.includes("slickdeals.net"));
+  if (currentStore === "local") list = list.filter(isDealNearYou);
+  else if (settings.localOnly) list = list.filter(isInStoreDeal);
+  if (currentStore === "watchlist") list = list.filter(d => watchlist.includes(String(d.id)));
+  else if (currentStore !== "all" && currentStore !== "local") list = list.filter(d => d.store === currentStore);
+  if (currentFilter === "50") list = list.filter(d => pct(d) >= 50);
+  else if (currentFilter === "30") list = list.filter(d => pct(d) >= 30);
+  else if (currentFilter === "20") list = list.filter(d => pct(d) >= 20);
+  else if (currentFilter === "tech" || currentFilter === "home") list = list.filter(d => d.cat === currentFilter);
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  if (q) list = list.filter(d => d.name.toLowerCase().includes(q));
+  list.sort((a,b) => {
+    const pa=pct(a), pb=pct(b);
+    if (sortDesc) return pb-pa || (b.sale?1:0)-(a.sale?1:0);
+    return pa-pb;
+  });
+  return list;
+}
+
+// ── Render deals ───────────────────────────────────────────────
+function skeletonHTML() {
+  return Array(5).fill(0).map(() => `
+    <div class="skel-card"><div class="skeleton skel-img"></div>
+    <div style="flex:1;padding:4px 0">
+      <div class="skeleton skel-line" style="width:30%;height:18px"></div>
+      <div class="skeleton skel-line" style="width:90%"></div>
+      <div class="skeleton skel-line" style="width:70%"></div>
+      <div class="skeleton skel-line" style="width:40%;margin-top:14px;height:18px"></div>
+    </div></div>`).join("");
+}
+function render() {
+  if (!liveDeals.length) {
+    document.getElementById("content").innerHTML = `<div class="section-title"><h2>Loading…</h2></div>` + skeletonHTML();
+    return;
+  }
+  const list = getFiltered();
+  const el = document.getElementById("content");
+  const total = allDeals().filter(d => !settings.hiddenStores.includes(d.store)).length;
+  const ago = lastUpdated ? timeAgo(lastUpdated) : "";
+  const loc = settings.zip
+    ? `<span style="display:inline-flex;align-items:center;gap:3px;margin-left:7px;color:var(--accent);font-weight:700">📍 ${escapeHtml(settings.city?settings.city+", "+settings.state:settings.zip)}</span>`
+    : "";
+  document.getElementById("deal-count").innerHTML = isLive
+    ? `<span class="live-dot"></span> ${total} live deals · ${ago}${loc}`
+    : `${total} sample deals${loc}`;
+
+  if (list.length === 0) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">${currentStore==="watchlist"?"💔":"🔍"}</div><h3>${currentStore==="watchlist"?"Your watchlist is empty":"No deals found"}</h3><p>${currentStore==="watchlist"?"Tap the heart on any deal to save it here.":"Try adjusting your filters or search terms."}</p></div>`;
+    return;
+  }
+  const titles = {all:"🔥 All Live Deals",local:"📍 Near You",amazon:"Amazon Deals",walmart:"Walmart Deals",samsclub:"Sam's Club Deals",bestbuy:"Best Buy Deals",target:"Target Deals",other:"Other Stores",watchlist:"❤️ Your Watchlist"};
+  el.innerHTML = `<div class="section-title"><h2>${titles[currentStore]||"Deals"}</h2><span>${list.length} item${list.length!==1?"s":""}</span></div>` +
+    list.map((d,i) => {
+      const p = pct(d), inList = watchlist.includes(String(d.id));
+      const label = d.storeLabel || STORE_LABELS[d.store] || "Store";
+      const price = d.sale ? `$${d.sale.toFixed(2)}` : "View deal";
+      const orig = d.orig ? `<span class="price-orig">$${d.orig.toFixed(2)}</span>` : "";
+      const save = (d.sale && d.orig && d.orig>d.sale) ? `<div class="price-save">Save $${(d.orig-d.sale).toFixed(2)}</div>` : "";
+      const badgeHtml = p > 0 ? `<span class="discount-badge">-${p}%</span>` : "";
+      let localBadge = "";
+      if (d.ymmv) localBadge = `<span class="local-badge ymmv">YMMV</span>`;
+      else if (d.inStore || isInStoreDeal(d)) localBadge = `<span class="local-badge in-store">IN-STORE</span>`;
+      const esc = d.name.replace(/"/g,"&quot;");
+      const imgHtml = d.img
+        ? `<img src="${d.img}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none';this.parentNode.querySelector('.img-fallback').style.display='flex'"><div class="img-fallback" style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:48px;background:var(--card2);">${d.emoji||"🛍️"}</div>`
+        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:48px;background:var(--card2);">${d.emoji||"🛍️"}</div>`;
+      return `<a class="card card-link" data-id="${d.id}" href="${dealHref(d)}" target="_blank" rel="noopener noreferrer" style="animation-delay:${Math.min(i*0.03,0.6)}s">
+        <div class="card-img">${badgeHtml}${localBadge}${imgHtml}</div>
+        <div class="card-body">
+          <span class="card-store store-${d.store}">${label}</span>
+          <div class="card-name">${esc}</div>
+          <div class="card-prices"><span class="price-sale">${price}</span>${orig}</div>
+          ${save}
+          <div class="card-footer">
+            <div class="rating"><span class="star">★</span> ${d.rating||"4.5"} ${d.reviews?`<span>(${d.reviews.toLocaleString()})</span>`:""}</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span class="view-deal">View Deal →</span>
+              <button class="heart share-btn" title="Share" onclick="event.preventDefault();event.stopPropagation();shareDeal('${d.id}')" aria-label="Share deal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              </button>
+              <button class="heart ${inList?"active":""}" title="Save to watchlist" onclick="event.preventDefault();event.stopPropagation();toggleHeart('${d.id}')">
+                <svg viewBox="0 0 24 24" fill="${inList?"currentColor":"none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </a>`;
+    }).join("");
+}
+function timeAgo(ts) {
+  const s = Math.floor((Date.now()-ts)/1000);
+  if (s<60) return "just now"; if (s<3600) return Math.floor(s/60)+"m ago"; return Math.floor(s/3600)+"h ago";
+}
+function findDeal(id) { return allDeals().find(d => String(d.id) === String(id)); }
+
+// Open deal links (delegated fallback for embedded views)
+document.getElementById("content").addEventListener("click", e => {
+  if (e.target.closest(".heart")) return;
+  const link = e.target.closest(".card-link");
+  if (!link) return;
+  const href = link.getAttribute("href");
+  if (href && href !== "#") {
+    e.preventDefault();
+    const win = window.open(href, "_blank", "noopener,noreferrer");
+    if (!win) { try { window.top.location.href = href; } catch(_) { window.location.href = href; } }
+  } else { showToast("No product link for this deal"); }
+});
+
+function toggleHeart(id) {
+  id = String(id);
+  const i = watchlist.indexOf(id);
+  if (i>-1) { watchlist.splice(i,1); showToast("Removed from watchlist"); }
+  else { watchlist.push(id); showToast("Saved to watchlist ❤️"); }
+  localStorage.setItem("ds_watchlist", JSON.stringify(watchlist));
+  render();
+}
+
+document.getElementById("storeTabs").addEventListener("click", e => {
+  const btn = e.target.closest(".store-tab"); if (!btn) return;
+  document.querySelectorAll(".store-tab").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active"); currentStore = btn.dataset.store; render();
+});
+document.getElementById("chips").addEventListener("click", e => {
+  const btn = e.target.closest(".chip"); if (!btn) return;
+  document.querySelectorAll(".chip").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active"); currentFilter = btn.dataset.filter; render();
+});
+document.getElementById("search").addEventListener("input", render);
+function toggleSort() { sortDesc = !sortDesc; showToast(`Sorted by ${sortDesc?"biggest":"smallest"} discount`); render(); }
+
+function switchNav(nav) {
+  document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
+  document.querySelector(`[data-nav="${nav}"]`).classList.add("active");
+  if (nav === "watchlist") currentStore = "watchlist";
+  else if (nav === "deals") currentStore = "all";
+  if (nav === "watchlist" || nav === "deals") {
+    document.querySelectorAll(".store-tab").forEach(b => b.classList.remove("active"));
+    document.querySelector(`.store-tab[data-store="${currentStore}"]`).classList.add("active");
+  }
+  closeAlerts(); closeSettings(); render();
+}
+
+// ── Alerts overlay ─────────────────────────────────────────────
+function openAlerts() {
+  document.getElementById("alertsOverlay").classList.add("open");
+  document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
+  renderAlerts();
+}
+function closeAlerts() { document.getElementById("alertsOverlay").classList.remove("open"); updateNavActive(); }
+function markAllRead() { notifs.forEach(n => n.read = true); saveNotifs(); updateAlertBadge(); renderAlerts(); }
+function clearNotifs() { notifs = []; saveNotifs(); updateAlertBadge(); renderAlerts(); showToast("Alerts cleared"); }
+function openNotif(n) {
+  n.read = true; saveNotifs(); updateAlertBadge();
+  if (n.url && n.url !== "#") {
+    const win = window.open(n.url, "_blank", "noopener,noreferrer");
+    if (!win) { try { window.top.location.href = n.url; } catch(_) { window.location.href = n.url; } }
+  }
+  closeAlerts();
+}
+function renderAlerts() {
+  const el = document.getElementById("alertsBody");
+  if (!notifs.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🔕</div><h3>No alerts yet</h3><p>Add keywords or pick stores in Settings → Notifications. We'll notify you the moment a matching live deal appears.</p></div>`;
+    return;
+  }
+  el.innerHTML = `<button class="btn btn-danger btn-block" onclick="clearNotifs()">Clear all alerts</button>` +
+    notifs.map(n => `<div class="notif ${n.read?"":"unread"}" onclick='openNotif(${JSON.stringify(n).replace(/"/g,"&quot;")})'>
+      <div class="notif-icon">🏷️</div>
+      <div class="notif-body">
+        <div class="notif-title">${n.title}</div>
+        <div class="notif-msg">${n.body}</div>
+        <div class="notif-time">${timeAgo(n.ts)} ago</div>
+      </div>
+      ${n.read ? "" : '<div class="notif-dot"></div>'}
+    </div>`).join("");
+}
+
+// ── Settings overlay ───────────────────────────────────────────
+function openSettings() {
+  document.getElementById("settingsOverlay").classList.add("open");
+  document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
+  renderSettings();
+}
+function closeSettings() { document.getElementById("settingsOverlay").classList.remove("open"); updateNavActive(); }
+function updateNavActive() {
+  document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
+  const nav = currentStore === "watchlist" ? "watchlist" : "deals";
+  document.querySelector(`[data-nav="${nav}"]`).classList.add("active");
+}
+function applyTheme() { document.getElementById("phone").setAttribute("data-theme", settings.theme); }
+
+function renderSettings() {
+  const s = settings;
+  const storeToggles = ALL_STORES.filter(k => k!=="other" && k!=="bjs").map(k => {
+    const on = !s.hiddenStores.includes(k);
+    return `<div class="store-toggle ${on?"on":""}" onclick="toggleStoreVis('${k}')">
+      <span class="dot" style="background:${STORE_DOT[k]}"></span>${STORE_LABELS[k]}<span style="margin-left:auto;color:${on?"var(--accent)":"var(--text2)"}">${on?"✓":"—"}</span>
+    </div>`;
+  }).join("");
+  const notifStoreToggles = ALL_STORES.filter(k => k!=="other" && k!=="bjs").slice(0,9).map(k => {
+    const on = s.notifStores.includes(k);
+    return `<div class="store-toggle ${on?"on":""}" onclick="toggleNotifStore('${k}')">
+      <span class="dot" style="background:${STORE_DOT[k]}"></span>${STORE_LABELS[k]}<span style="margin-left:auto;color:${on?"var(--accent)":"var(--text2)"}">${on?"✓":"—"}</span>
+    </div>`;
+  }).join("");
+
+  document.getElementById("settingsBody").innerHTML = `
+    <div class="group-title">Appearance</div>
+    <div class="group">
+      <div class="row"><div class="row-left"><div class="row-label">Theme</div></div>
+        <div class="seg">
+          <button class="${s.theme==="light"?"active":""}" onclick="setTheme('light')">☀️ Light</button>
+          <button class="${s.theme==="dark"?"active":""}" onclick="setTheme('dark')">🌙 Dark</button>
+          <button class="${s.theme==="system"?"active":""}" onclick="setTheme('system')">💻 System</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="group-title">Defaults</div>
+    <div class="group">
+      <div class="row"><div class="row-left"><div class="row-label">Open to</div><div class="row-sub">Default tab on launch</div></div>
+        <select class="sel" onchange="setSetting('defaultTab',this.value)">
+          <option value="all" ${s.defaultTab==="all"?"selected":""}>All Deals</option>
+          ${s.zip?`<option value="local" ${s.defaultTab==="local"?"selected":""}>📍 Near You</option>`:""}
+          <option value="amazon" ${s.defaultTab==="amazon"?"selected":""}>Amazon</option>
+          <option value="walmart" ${s.defaultTab==="walmart"?"selected":""}>Walmart</option>
+          <option value="bestbuy" ${s.defaultTab==="bestbuy"?"selected":""}>Best Buy</option>
+          <option value="target" ${s.defaultTab==="target"?"selected":""}>Target</option>
+          <option value="watchlist" ${s.defaultTab==="watchlist"?"selected":""}>Watchlist</option>
+        </select>
+      </div>
+      <div class="row"><div class="row-left"><div class="row-label">Sort by</div></div>
+        <div class="seg">
+          <button class="${s.defaultSort==="biggest"?"active":""}" onclick="setDefaultSort('biggest')">Biggest</button>
+          <button class="${s.defaultSort==="smallest"?"active":""}" onclick="setDefaultSort('smallest')">Smallest</button>
+        </div>
+      </div>
+      <div class="row"><div class="row-left"><div class="row-label">Refresh every</div><div class="row-sub">How often to check for new live deals</div></div>
+        <select class="sel" onchange="setRefresh(this.value)">
+          <option value="1" ${s.refreshInterval==1?"selected":""}>1 min</option>
+          <option value="5" ${s.refreshInterval==5?"selected":""}>5 min</option>
+          <option value="15" ${s.refreshInterval==15?"selected":""}>15 min</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="group-title">Visible Stores</div>
+    <div class="group"><div style="padding:13px 16px">
+      <div class="store-toggles">${storeToggles}</div>
+    </div></div>
+
+    <div class="group-title">📍 Location</div>
+    <div class="group">
+      <div class="row" style="flex-direction:column;align-items:stretch">
+        <div class="row-label" style="margin-bottom:4px">Your ZIP code</div>
+        <div class="row-sub" style="margin-bottom:10px">Used to show local/in-store deals near you. National online deals still appear.</div>
+        <div style="display:flex;gap:8px">
+          <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" id="zipInput" class="inp" style="flex:1" value="${s.zip||""}" placeholder="e.g. 64055" onkeydown="if(event.key==='Enter')saveZip()">
+          <button class="btn btn-primary" style="padding:0 16px;flex:none" onclick="saveZip()">Set</button>
+        </div>
+        ${s.zip ? `<div class="row-sub" style="margin-top:10px;display:flex;align-items:center;gap:6px">
+          <span style="color:var(--green)">●</span> Showing deals near
+          <strong style="color:var(--text)">${s.city?escapeHtml(s.city)+", ":""}${s.state||s.zip}</strong>
+          <button onclick="clearLocation()" style="margin-left:auto;background:none;border:none;color:var(--red);font-size:12px;font-weight:700;cursor:pointer">Clear</button>
+        </div>` : ""}
+      </div>
+      <div class="row">
+        <div class="row-left"><div class="row-label">In-store deals only</div><div class="row-sub">Hide deals that are online-only (best effort based on deal text)</div></div>
+        <label class="switch"><input type="checkbox" ${s.localOnly?"checked":""} onchange="setSetting('localOnly',this.checked)"><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="group-title">Deal Feed</div>
+    <div class="group">
+      <div class="row">
+        <div class="row-left"><div class="row-label">Hide thread-only deals</div><div class="row-sub">Only show deals with a direct retailer link</div></div>
+        <label class="switch"><input type="checkbox" ${s.hideThreadOnly?"checked":""} onchange="setSetting('hideThreadOnly',this.checked)"><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="group-title">🔔 Notifications</div>
+    <div class="group">
+      <div class="row">
+        <div class="row-left"><div class="row-label">Deal alerts</div><div class="row-sub">Get notified about new matching live deals while the app is open</div></div>
+        <label class="switch"><input type="checkbox" id="notifToggle" ${s.notifEnabled?"checked":""} onchange="toggleNotifEnabled()"><span class="slider"></span></label>
+      </div>
+      <div class="row" style="flex-direction:column;align-items:stretch">
+        <div class="row-label" style="margin-bottom:4px">Alert me about keywords</div>
+        <div class="row-sub" style="margin-bottom:8px">e.g. PS5, air fryer, Sony headphones — leave empty for all deals in your stores</div>
+        <div class="kw-list" id="kwList">${s.notifKeywords.map(k=>`<span class="kw">${escapeHtml(k)}<button onclick="removeKw('${escapeHtml(k)}')">×</button></span>`).join("")}</div>
+        <div class="kw-input"><input id="kwInput" placeholder="Add a keyword..." onkeydown="if(event.key==='Enter')addKw()"><button onclick="addKw()">Add</button></div>
+      </div>
+      <div class="row" style="flex-direction:column;align-items:stretch">
+        <div class="row-label" style="margin-bottom:8px">Only from these stores</div>
+        <div class="store-toggles">${notifStoreToggles}</div>
+      </div>
+      <div class="row"><div class="row-left"><div class="row-label">Minimum discount</div><div class="row-sub">Only alert at this % off or higher</div></div>
+        <select class="sel" onchange="setSetting('notifMinDiscount',parseInt(this.value));saveSettings()">
+          <option value="0" ${!s.notifMinDiscount?"selected":""}>Any</option>
+          <option value="20" ${s.notifMinDiscount===20?"selected":""}>20%+</option>
+          <option value="30" ${s.notifMinDiscount===30?"selected":""}>30%+</option>
+          <option value="50" ${s.notifMinDiscount===50?"selected":""}>50%+</option>
+        </select>
+      </div>
+      <div class="row"><div class="row-left"><div class="row-label">Test notification</div></div>
+        <button class="btn btn-ghost" style="padding:8px 14px" onclick="testNotif()">Send test</button>
+      </div>
+    </div>
+
+    <div class="group-title">Data</div>
+    <div class="group" style="padding:13px 16px">
+      <button class="btn btn-ghost btn-block" onclick="exportData()">📤 Export my data</button>
+      <button class="btn btn-ghost btn-block" onclick="document.getElementById('importFile').click()">📥 Import data</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(event)">
+      <button class="btn btn-ghost btn-block" onclick="clearWatchlist()">Clear watchlist</button>
+      <button class="btn btn-ghost btn-block" onclick="clearCustomDeals()">Clear my added deals</button>
+      <button class="btn btn-danger btn-block" onclick="resetAll()">Reset everything</button>
+    </div>
+
+    <div class="group-title">About</div>
+    <div class="group" style="padding:14px 16px">
+      <button class="btn btn-primary btn-block" id="installBtn" style="display:none" onclick="installPWA()">📲 Install DealSpot</button>
+      <div class="row-sub" id="installHint" style="line-height:1.6; margin-bottom:10px">
+        <strong>DealSpot</strong> is a Progressive Web App — install it to your home screen for a full-screen, app-like experience, no app store needed.
+      </div>
+      <div class="row-sub" style="line-height:1.6; margin-bottom:12px">
+        <strong>DealSpot</strong> v2.0 — live discount tracker.<br>
+        Live deals aggregated from Slickdeals public RSS feeds, auto-refreshed every ${s.refreshInterval} minute${s.refreshInterval>1?"s":""}.<br>
+        Your custom deals, alerts and preferences are stored only on this device.
+      </div>
+      <button class="btn btn-ghost btn-block" onclick="showWhatsNew()">✨ What's new (v${APP_VERSION})</button>
+      <button class="btn btn-ghost btn-block" onclick="showOnboarding()">👋 Replay welcome tour</button>
+      <button class="btn btn-ghost btn-block" onclick="openLegal()">📄 Privacy Policy & Disclosures</button>
+    </div>
+  `;
+  refreshInstallButton();
+}
+
+function openLegal() {
+  document.getElementById("settingsOverlay").classList.remove("open");
+  document.getElementById("legalOverlay").classList.add("open");
+  renderLegal();
+}
+function closeLegal() {
+  document.getElementById("legalOverlay").classList.remove("open");
+  if (document.getElementById("settingsOverlay")) openSettings();
+}
+function renderLegal() {
+  document.getElementById("legalBody").innerHTML = `
+    <p class="updated"><strong>Last updated:</strong> August 2026</p>
+
+    <h3>What DealSpot does</h3>
+    <p>DealSpot shows you publicly available discount/deal listings and lets you save favorites, set keyword alerts, and open the retailer's product page to purchase. Live deal information is aggregated from <a href="https://slickdeals.net" target="_blank" rel="noopener">Slickdeals</a>' public RSS feeds.</p>
+
+    <h3>Information we collect</h3>
+    <p><strong>We don't collect, store, or transmit any of your personal data to our own servers.</strong> Everything you create in the app — your watchlist, custom deals, keywords, ZIP code, theme, and settings — is saved locally in your browser using standard local storage and never leaves your device.</p>
+    <ul>
+      <li>Your <strong>ZIP code</strong> is sent only to the free public <a href="https://www.zippopotam.us" target="_blank" rel="noopener">zippopotam.us</a> API to look up your city/state.</li>
+      <li><strong>Push notifications</strong> are sent by your own browser; we run no notification server.</li>
+    </ul>
+
+    <h3>Third-party services</h3>
+    <p>When you tap a deal, you leave DealSpot and go to the retailer's or Slickdeals' website. Those sites have their own privacy policies and may use cookies, analytics, and tracking over which we have no control.</p>
+
+    <h3>Affiliate & commission disclosure</h3>
+    <p>DealSpot itself does not currently use affiliate links and earns no commission from purchases. If affiliate links are added in the future, this policy will be updated and purchases may earn us a commission at no extra cost to you. Product names, logos, and prices are property of their respective retailers.</p>
+
+    <h3>Accuracy & availability</h3>
+    <p>Deals are provided "as is" by third parties. Prices and availability change constantly and may differ from what is shown; always verify the final price on the retailer's page before purchasing.</p>
+
+    <h3>Your choices</h3>
+    <p>You can clear all local data any time from <strong>Settings → Data → Reset everything</strong>, or by clearing your browser's site data. You can deny notification permission at any time in your browser settings.</p>
+
+    <h3>Contact</h3>
+    <p>Questions about this policy? Reach out through the platform where you obtained DealSpot.</p>
+  `;
+}
+function escapeHtml(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function setTheme(t){ settings.theme=t; applyTheme(); saveSettings(); renderSettings(); }
+function setSetting(k,v){ settings[k]=v; saveSettings(); if(k==="hiddenStores"||k==="hideThreadOnly"||k==="localOnly") render(); }
+function setDefaultSort(v){ settings.defaultSort=v; sortDesc = v==="biggest"; saveSettings(); renderSettings(); render(); }
+function setRefresh(v){ settings.refreshInterval=parseInt(v); saveSettings(); setupRefreshTimer(); renderSettings(); showToast(`Refreshing every ${settings.refreshInterval} min`); }
+async function saveZip(){
+  const inp = document.getElementById("zipInput");
+  const zip = (inp.value||"").trim().replace(/\D/g,"").slice(0,5);
+  if (zip.length !== 5) { showToast("Enter a valid 5-digit ZIP"); return; }
+  showToast("Looking up location…");
+  try {
+    const res = await fetch(`https://api.zippopotam.us/us/${zip}`);
+    if (!res.ok) throw new Error("not found");
+    const data = await res.json();
+    const place = (data.places && data.places[0]) || {};
+    settings.zip = zip;
+    settings.city = place["place name"] || "";
+    settings.state = place["state abbreviation"] || place.state || "";
+    saveSettings();
+    showToast(`Location set: ${settings.city||""}${settings.city?",":""} ${settings.state}`);
+    renderSettings(); render(); updateLocalTab();
+  } catch(e) { showToast("Could not find that ZIP — try again"); }
+}
+function clearLocation(){
+  settings.zip=""; settings.city=""; settings.state=""; settings.localOnly=false;
+  saveSettings(); renderSettings(); render(); updateLocalTab(); showToast("Location cleared");
+}
+function updateLocalTab(){
+  const tab = document.getElementById("localTab");
+  if (tab) tab.style.display = settings.zip ? "flex" : "none";
+}
+function isInStoreDeal(d){
+  // Prefer backend tags; fall back to keyword detection for custom/fallback deals.
+  if (d.inStore || d.ymmv) return true;
+  const t = (d.name+" "+(d.storeLabel||"")+" "+(d.url||"")).toLowerCase();
+  return /\b(in[- ]?store|bopus|pickup|in stock near|local|clearance|ymmv|select stores?)\b/.test(t)
+    && !/free s&?h|free shipping|prime|online only/.test(t);
+}
+function isDealNearYou(d){
+  // When a state is set, a deal that lists that state is "near you".
+  // YMMV / select-store / in-store deals without a state are shown as local
+  // candidates (availability varies by location).
+  if (!settings.state) return isInStoreDeal(d);
+  if (Array.isArray(d.states) && d.states.length) {
+    return d.states.includes(settings.state);
+  }
+  return isInStoreDeal(d);
+}
+function toggleStoreVis(k){
+  const i = settings.hiddenStores.indexOf(k);
+  if (i>-1) settings.hiddenStores.splice(i,1); else settings.hiddenStores.push(k);
+  saveSettings(); renderSettings(); render();
+}
+function toggleNotifEnabled(){
+  settings.notifEnabled = document.getElementById("notifToggle").checked;
+  if (settings.notifEnabled && "Notification" in window && Notification.permission==="default") {
+    Notification.requestPermission().then(p => { if(p!=="granted"){ settings.notifEnabled=false; document.getElementById("notifToggle").checked=false; showToast("Notifications blocked by browser"); } saveSettings(); });
+  } else { saveSettings(); }
+  if (settings.notifEnabled) showToast("Deal alerts on 🔔");
+}
+function addKw(){
+  const inp = document.getElementById("kwInput"); const v = inp.value.trim();
+  if (v && !settings.notifKeywords.includes(v.toLowerCase())) { settings.notifKeywords.push(v.toLowerCase()); saveSettings(); renderSettings(); }
+  inp.value="";
+}
+function removeKw(k){ settings.notifKeywords = settings.notifKeywords.filter(x=>x!==k); saveSettings(); renderSettings(); }
+function toggleNotifStore(k){
+  const i = settings.notifStores.indexOf(k);
+  if (i>-1) settings.notifStores.splice(i,1); else settings.notifStores.push(k);
+  saveSettings(); renderSettings();
+}
+function testNotif(){
+  const n = {title:"Test alert 🔔", body:"You'll get notified when matching live deals appear.", url:"#"};
+  if (settings.notifEnabled && "Notification" in window && Notification.permission==="granted") pushBrowserNotification(n);
+  else showToast("In-app test: alerts are working!");
+}
+function exportData(){
+  const data = {settings, watchlist, customDeals, notifs, exported:Date.now()};
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = "dealspot-data.json"; a.click(); URL.revokeObjectURL(a.href);
+  showToast("Data exported");
+}
+function importData(e){
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (d.settings) settings = Object.assign({}, DEFAULT_SETTINGS, d.settings);
+      if (Array.isArray(d.watchlist)) watchlist = d.watchlist;
+      if (Array.isArray(d.customDeals)) customDeals = d.customDeals;
+      if (Array.isArray(d.notifs)) notifs = d.notifs;
+      Object.entries({ds_settings:settings,ds_watchlist:watchlist,ds_custom:customDeals,ds_notifs:notifs}).forEach(([k,v])=>localStorage.setItem(k,JSON.stringify(v)));
+      applyTheme(); sortDesc = settings.defaultSort==="biggest"; setupRefreshTimer(); renderSettings(); render(); updateAlertBadge();
+      showToast("Data imported ✅");
+    } catch(err) { showToast("Invalid file"); }
+  };
+  r.readAsText(f); e.target.value="";
+}
+function clearWatchlist(){ if(confirm("Clear your watchlist?")){ watchlist=[]; localStorage.setItem("ds_watchlist","[]"); render(); showToast("Watchlist cleared"); } }
+function clearCustomDeals(){ if(confirm("Remove all deals you added?")){ customDeals=[]; localStorage.setItem("ds_custom","[]"); render(); showToast("Custom deals cleared"); } }
+function resetAll(){ if(confirm("Reset ALL settings, watchlist, custom deals and alerts? This cannot be undone.")){ ["ds_settings","ds_watchlist","ds_custom","ds_notifs","ds_seen"].forEach(k=>localStorage.removeItem(k)); location.reload(); } }
+
+// ── Add-deal modal ─────────────────────────────────────────────
+function openModal(){ document.getElementById("modal").classList.add("open"); }
+function closeModal(){ document.getElementById("modal").classList.remove("open"); ["m-name","m-sale","m-orig","m-img","m-url"].forEach(id=>{const e=document.getElementById(id);if(e)e.value="";}); }
+document.getElementById("modal").addEventListener("click", e => { if(e.target.id==="modal") closeModal(); });
+function saveProduct(){
+  const name = document.getElementById("m-name").value.trim();
+  const sale = parseFloat(document.getElementById("m-sale").value);
+  const orig = parseFloat(document.getElementById("m-orig").value);
+  const url = (document.getElementById("m-url")||{}).value || "";
+  if (!name || !sale || (orig && sale>=orig)) { showToast("Please fill in valid prices"); return; }
+  const store = document.getElementById("m-store").value;
+  customDeals.push({id:"custom_"+Date.now(),name,store,storeLabel:STORE_LABELS[store],sale,orig:orig||null,rating:0,reviews:0,cat:document.getElementById("m-cat").value,emoji:"🛍️",img:(document.getElementById("m-img")||{}).value.trim()||null,url:url.trim()||"#",live:false});
+  localStorage.setItem("ds_custom", JSON.stringify(customDeals));
+  closeModal(); showToast("Deal added! 🎉"); render();
+}
+
+// ── Share a deal ───────────────────────────────────────────────
+async function shareDeal(id) {
+  const d = findDeal(id);
+  if (!d) return;
+  const href = dealHref(d);
+  const text = `🔥 Deal: ${d.name} — $${d.sale?d.sale.toFixed(2):"View deal"}${d.orig?" (was $"+d.orig.toFixed(2)+")":""}`;
+  if (navigator.share) {
+    try { await navigator.share({title:"DealSpot deal", text, url:href}); return; }
+    catch(e) { if(e.name!=="AbortError") {/* fall through to copy */} }
+  }
+  try {
+    await navigator.clipboard.writeText(href);
+    showToast("Link copied to clipboard 📋");
+  } catch(e) {
+    window.prompt("Copy this deal link:", href);
+  }
+}
+
+// ── Pull to refresh ────────────────────────────────────────────
+(function initPTR(){
+  const content = document.getElementById("content");
+  const ptr = document.getElementById("ptr");
+  let startY = 0, pulling = false;
+  content.addEventListener("touchstart", e => {
+    if (content.scrollTop <= 0) { startY = e.touches[0].clientY; pulling = true; }
+  }, {passive:true});
+  content.addEventListener("touchmove", e => {
+    if (!pulling) return;
+    const diff = e.touches[0].clientY - startY;
+    if (diff > 60 && content.scrollTop <= 0) {
+      ptr.classList.add("show");
+      ptr.textContent = "Release to refresh 🔄";
+    }
+  }, {passive:true});
+  content.addEventListener("touchend", () => {
+    if (ptr.classList.contains("show")) {
+      ptr.textContent = "Refreshing…";
+      loadDeals(true).then(() => setTimeout(()=>ptr.classList.remove("show"), 500));
+    } else {
+      ptr.classList.remove("show");
+    }
+    pulling = false;
+  });
+})();
+
+// ── Misc ───────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),2400); }
+function updateClock(){ document.getElementById("clock").textContent = new Date().toLocaleTimeString([],{hour:"numeric",minute:"2-digit"}).replace(/\s/,""); }
+updateClock(); setInterval(updateClock,30000);
+setInterval(render, 30000); // refresh "x ago" labels
+
+function setupRefreshTimer(){
+  if (refreshTimer) clearInterval(refreshTimer);
+  const mins = settings.refreshInterval || 5;
+  refreshTimer = setInterval(() => loadDeals(false), mins*60*1000);
+}
+
+// ── PWA: install prompt + service worker ───────────────────────
+let deferredPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  refreshInstallButton();
+});
+window.addEventListener("appinstalled", () => {
+  deferredPrompt = null;
+  refreshInstallButton();
+  showToast("DealSpot installed! 🎉");
+});
+function isStandalone() {
+  return window.matchMedia("(display-mode: standalone)").matches ||
+         window.navigator.standalone === true;
+}
+function isIOS() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+function refreshInstallButton() {
+  const btn = document.getElementById("installBtn");
+  const hint = document.getElementById("installHint");
+  if (!btn) return;
+  if (isStandalone()) { btn.style.display = "none"; if (hint) hint.style.display="none"; return; }
+  if (deferredPrompt) {
+    btn.style.display = "block";
+    if (hint) hint.innerHTML = "Tap below to install DealSpot on your device.";
+  } else if (isIOS()) {
+    btn.style.display = "none";
+    if (hint) hint.innerHTML = "<strong>To install on iPhone/iPad:</strong> tap the Share button <strong>⬆️</strong> in Safari, then choose <strong>“Add to Home Screen”</strong>.";
+  } else {
+    btn.style.display = "none";
+    if (hint) hint.innerHTML = "To install, open DealSpot in Chrome/Edge and use the install icon in the address bar, or your browser menu → <strong>Install app</strong>.";
+  }
+}
+async function installPWA() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  refreshInstallButton();
+}
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").then(reg => {
+      // Auto-update when a new service worker version appears
+      reg.addEventListener("updatefound", () => {
+        const nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener("statechange", () => {
+          if (nw.state === "installed" && navigator.serviceWorker.controller) {
+            showToast("✨ Updated — refresh for the latest version");
+          }
+        });
+      });
+    }).catch(() => {});
+    // Reload when a new SW takes over
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (refreshing) return;
+      refreshing = true; location.reload();
+    });
+  });
+}
+
+// ── "What's new" on update ─────────────────────────────────────
+const APP_VERSION = "2.1.0";
+const CHANGELOG = [
+  { ic:"📍", t:"Local in-store deals", d:"Set your ZIP to surface clearance, BOPUS and YMMV finds near you — plus a dedicated Near You tab." },
+  { ic:"🔔", t:"Smarter alerts", d:"Keyword, store and minimum-discount notifications now run in the background while the app is open." },
+  { ic:"🏪", t:"Sam's Club separated", d:"Sam's Club is now its own store tab, fully separate from Walmart." },
+  { ic:"🔗", t:"Share any deal", d:"A new share button on every card uses the native share sheet or copies the link." },
+  { ic:"👇", t:"Pull to refresh & skeleton loading", d:"Pull the list down to refresh, with shimmering placeholders while deals load." },
+  { ic:"🔒", t:"Privacy policy built in", d:"Find it under Settings → About, along with dark mode, data export and install options." },
+];
+function showWhatsNew() {
+  document.getElementById("wnVersion").textContent = "v" + APP_VERSION;
+  document.getElementById("wnList").innerHTML = CHANGELOG.map(c =>
+    `<li><div class="wn-ic">${c.ic}</div><div><div class="wn-t">${c.t}</div><div class="wn-d">${c.d}</div></div></li>`
+  ).join("");
+  document.getElementById("whatsnewModal").classList.add("open");
+}
+function closeWhatsNew() {
+  document.getElementById("whatsnewModal").classList.remove("open");
+  try { localStorage.setItem("ds_seen_version", APP_VERSION); } catch(e) {}
+}
+function checkWhatsNew() {
+  let seen = null;
+  try { seen = localStorage.getItem("ds_seen_version"); } catch(e) {}
+  // Only show to returning users (already onboarded), never first launch.
+  if (seen && seen !== APP_VERSION) {
+    setTimeout(showWhatsNew, 800);
+  } else if (!seen) {
+    // first install — record current version so the NEXT update triggers it
+    try { localStorage.setItem("ds_seen_version", APP_VERSION); } catch(e) {}
+  }
+}
+
+// ── First-run onboarding ───────────────────────────────────────
+let obStep = 0;
+const OB_STEPS = [
+  { emoji:"🏷️", title:"Welcome to DealSpot", sub:"Live discounts from Amazon, Walmart, Sam's Club, Best Buy, Target and more — all in one place.", features:true },
+  { emoji:"🔔", title:"Never miss a deal", sub:"Set keywords and pick your stores. We'll alert you the moment a matching live deal appears.", setup:true },
+  { emoji:"📍", title:"Deals near you", sub:"Add your ZIP to see in-store clearance and local YMMV finds, plus install the app to your home screen.", final:true },
+];
+function showOnboarding() {
+  obStep = 0;
+  document.getElementById("onboarding").classList.add("open");
+  renderOnboarding();
+}
+function renderOnboarding() {
+  const s = OB_STEPS[obStep];
+  const center = document.getElementById("obCenter");
+  let extra = "";
+  if (s.features) {
+    extra = `<div class="ob-features">
+      <div class="ob-feat"><div class="ic">🔥</div><div class="t">Live deals</div></div>
+      <div class="ob-feat"><div class="ic">❤️</div><div class="t">Watchlist</div></div>
+      <div class="ob-feat"><div class="ic">🏬</div><div class="t">All stores</div></div>
+      <div class="ob-feat"><div class="ic">🌙</div><div class="t">Dark mode</div></div>
+    </div>`;
+  }
+  if (s.setup) {
+    extra = `<div class="ob-setup" style="margin-top:18px">
+      <div class="ob-opt on" onclick="this.classList.toggle('on')"><span class="ic">📦</span><div><div class="t">Amazon</div></div></div>
+      <div class="ob-opt on" onclick="this.classList.toggle('on')"><span class="ic">🛒</span><div><div class="t">Walmart & Sam's Club</div></div></div>
+      <div class="ob-opt on" onclick="this.classList.toggle('on')"><span class="ic">🏷️</span><div><div class="t">Best Buy & Target</div></div></div>
+    </div>`;
+  }
+  const dots = OB_STEPS.map((_,i)=>`<span class="ob-dot ${i===obStep?"active":""}"></span>`).join("");
+  center.innerHTML = `
+    <div class="ob-emoji">${s.emoji}</div>
+    <div class="ob-title">${s.title}</div>
+    <div class="ob-sub">${s.sub}</div>
+    ${extra}
+    <div class="ob-dots">${dots}</div>`;
+  const btn = document.getElementById("obBtn");
+  const btn2 = document.getElementById("obBtn2");
+  btn.textContent = obStep === OB_STEPS.length-1 ? "Let's go! 🚀" : "Next";
+  btn2.style.display = obStep === OB_STEPS.length-1 ? "block" : "none";
+}
+function obNext() {
+  if (obStep < OB_STEPS.length-1) { obStep++; renderOnboarding(); return; }
+  finishOnboarding();
+}
+function skipOnboarding() { finishOnboarding(); }
+function finishOnboarding() {
+  document.getElementById("onboarding").classList.remove("open");
+  try { localStorage.setItem("ds_onboarded", "1"); } catch(e) {}
+}
+function enableNotifsFromOnboarding() {
+  settings.notifEnabled = true;
+  saveSettings();
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission().then(p => {
+      if (p !== "granted") showToast("You can enable alerts later in Settings");
+      else showToast("Deal alerts on 🔔");
+    });
+  } else {
+    showToast("Deal alerts on 🔔");
+  }
+  finishOnboarding();
+}
+
+// ── Boot ───────────────────────────────────────────────────────
+function applyDeepLink() {
+  const p = new URLSearchParams(location.search);
+  const tab = p.get("tab");
+  const nav = p.get("nav");
+  if (nav === "alerts") { setTimeout(openAlerts, 400); return; }
+  if (nav === "settings") { setTimeout(openSettings, 400); return; }
+  if (nav === "watchlist" || tab === "watchlist") currentStore = "watchlist";
+  else if (["all","local","amazon","walmart","samsclub","bestbuy","target","other"].includes(tab)) currentStore = tab;
+}
+applyTheme();
+sortDesc = settings.defaultSort === "biggest";
+currentStore = settings.defaultTab;
+applyDeepLink();
+document.querySelectorAll(".store-tab").forEach(b => b.classList.toggle("active", b.dataset.store === currentStore));
+updateNavActive();
+updateLocalTab();
+setupRefreshTimer();
+loadDeals(false);
+
+// Show welcome screen for first-time visitors (but not when launched via a
+// PWA shortcut with a deep-link, since that implies they already use it).
+try {
+  const isFirstRun = !localStorage.getItem("ds_onboarded");
+  const hasDeepLink = new URLSearchParams(location.search).get("tab") || new URLSearchParams(location.search).get("nav");
+  if (isFirstRun && !hasDeepLink) {
+    setTimeout(showOnboarding, 600);
+  } else {
+    checkWhatsNew(); // returning user → show changelog if the app was updated
+  }
+} catch(e) { checkWhatsNew(); }
+</script>
+</body>
+</html>

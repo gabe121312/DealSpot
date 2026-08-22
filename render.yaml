@@ -1,0 +1,26 @@
+# One-click deploy to Render (https://render.com)
+#
+# How to use:
+#   1. Push this folder to a GitHub repo.
+#   2. Go to https://render.com → New → Blueprint → pick the repo.
+#   3. Render reads this file and deploys everything automatically.
+#
+# Or, if you create a "Web Service" manually, use:
+#   Runtime:      Python 3
+#   Build command: pip install --upgrade pip
+#   Start command: python server.py
+#
+# Render automatically sets the $PORT environment variable; server.py reads it.
+
+services:
+  - type: web
+    name: dealspot
+    runtime: python
+    plan: free
+    buildCommand: pip install --upgrade pip
+    startCommand: python server.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+    healthCheckPath: /api/deals
+    autoDeploy: true
