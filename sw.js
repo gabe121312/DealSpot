@@ -1,10 +1,6 @@
-/* DealSpot service worker — app-shell caching + offline support */
-const CACHE = "dealspot-v2";
-const SHELL = [
-  "./",
-  "./index.html",
-  "./manifest.webmanifest",
-];
+/* DealSpot service worker — app-shell caching + push notifications */
+const CACHE = "dealspot-v3";
+const SHELL = ["./", "./index.html", "./manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
@@ -25,13 +21,12 @@ self.addEventListener("fetch", (e) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
 
-  // API: network-first, fall back to last cached response
   if (url.pathname.startsWith("/api/")) {
     e.respondWith(
       fetch(req)
         .then((res) => {
           const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy)).catch(()=>{});
+          caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
           return res;
         })
         .catch(() => caches.match(req).then((r) => r || caches.match("./")))
@@ -39,7 +34,6 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Same-origin assets: cache-first, then network
   if (url.origin === self.location.origin) {
     e.respondWith(
       caches.match(req).then((cached) =>
@@ -47,11 +41,41 @@ self.addEventListener("fetch", (e) => {
         fetch(req).then((res) => {
           if (res && res.status === 200) {
             const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put(req, copy)).catch(()=>{});
+            caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
           }
           return res;
         }).catch(() => caches.match("./index.html"))
       )
     );
   }
+});
+
+// ── Real push notifications ────────────────────────────────────
+self.addEventListener("push", (e) => {
+  let data = {};
+  try { data = e.data ? e.data.json() : {}; } catch (_) { data = { title: "DealSpot", body: e.data ? e.data.text() : "New deal!" }; }
+  const title = data.title || "🔥 New deal";
+  const options = {
+    body: data.body || "",
+    tag: data.tag || "dealspot",
+    renotify: true,
+    icon: data.icon || "./icons/icon-192.png",
+    badge: data.badge || "./icons/icon-192.png",
+    data: { url: data.url || "./" },
+    vibrate: [120, 60, 120],
+  };
+  e.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const target = (e.notification.data && e.notification.data.url) || "./";
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      for (const c of list) {
+        if ("focus" in c) { c.navigate(target); return c.focus(); }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(target);
+    })
+  );
 });

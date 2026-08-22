@@ -567,14 +567,116 @@ const DEFAULT_SETTINGS = {
   state: "",
   refreshInterval: 5,
   notifEnabled: false,
+  pushEnabled: false,
   notifKeywords: [],
   notifStores: ["amazon","walmart","samsclub","bestbuy","target"],
   notifMinDiscount: 0,
 };
 let settings = Object.assign({}, DEFAULT_SETTINGS, JSON.parse(localStorage.getItem("ds_settings") || "{}"));
 
-function saveSettings() { localStorage.setItem("ds_settings", JSON.stringify(settings)); }
+let _syncTimer;
+function saveSettings() {
+  localStorage.setItem("ds_settings", JSON.stringify(settings));
+  // Debounced sync of alert prefs to the push server
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(syncPushPrefs, 1500);
+}
 function saveNotifs() { localStorage.setItem("ds_notifs", JSON.stringify(notifs.slice(0, 50))); }
+
+// ── Real Web Push ──────────────────────────────────────────────
+const pushSupported = ("serviceWorker" in navigator && "PushManager" in window && "Notification" in window);
+let _pushBusy = false;
+async function getPushPubKey() {
+  try {
+    const r = await fetch("/api/push/pubkey", {cache:"no-store"});
+    const d = await r.json();
+    return d.publicKey || null;
+  } catch(e) { return null; }
+}
+function urlBase64ToUint8Array(b64) {
+  const bin = atob(b64.replace(/-/g,"+").replace(/_/g,"/"));
+  const out = new Uint8Array(bin.length);
+  for (let i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+async function subscribePush() {
+  if (!pushSupported) { showToast("Push isn't supported in this browser"); return false; }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (sub) return sub;
+    const pub = await getPushPubKey();
+    if (!pub) { showToast("Push server unavailable — try later"); return false; }
+    sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(pub),
+    });
+    return sub;
+  } catch(e) {
+    if (e.name === "NotAllowedError") showToast("Notification permission denied");
+    else showToast("Couldn't enable push: " + (e.message||"error"));
+    return false;
+  }
+}
+async function sendSubToServer(sub, remove) {
+  try {
+    await fetch(remove ? "/api/push/unsub" : "/api/push/sub", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({subscription: sub, prefs: {
+        keywords: settings.notifKeywords, stores: settings.notifStores,
+        minDiscount: settings.notifMinDiscount,
+      }}),
+    });
+  } catch(e) {}
+}
+async function togglePush() {
+  const t = document.getElementById("pushToggle");
+  if (!t) return;
+  if (_pushBusy) { t.checked = settings.pushEnabled; return; }
+  _pushBusy = true;
+  if (t.checked) {
+    if (Notification.permission === "denied") {
+      showToast("Enable notifications in your browser/site settings first");
+      t.checked = false; _pushBusy = false; return;
+    }
+    const sub = await subscribePush();
+    if (sub) {
+      settings.pushEnabled = true; saveSettings();
+      await sendSubToServer(sub, false);
+      showToast("🔔 Phone notifications enabled!");
+    } else {
+      t.checked = false; settings.pushEnabled = false; saveSettings();
+    }
+  } else {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) { await sendSubToServer(sub, true); await sub.unsubscribe(); }
+    } catch(e) {}
+    settings.pushEnabled = false; saveSettings();
+    showToast("Phone notifications off");
+  }
+  _pushBusy = false;
+}
+async function syncPushPrefs() {
+  // Keep server-side prefs in sync whenever keywords/stores/discount change.
+  if (!settings.pushEnabled) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) await sendSubToServer(sub, false);
+  } catch(e) {}
+}
+async function reRegisterPushOnLoad() {
+  // If the user previously enabled push, make sure the subscription exists after an update.
+  if (!settings.pushEnabled || !pushSupported) return;
+  if (Notification.permission === "granted") {
+    const sub = await subscribePush();
+    if (sub) await sendSubToServer(sub, false);
+  } else {
+    settings.pushEnabled = false; saveSettings();
+  }
+}
 
 function allDeals() {
   return [...liveDeals, ...customDeals.map(d => ({...d, live:false, url:d.url || d.threadUrl || "#"}))];
@@ -928,8 +1030,11 @@ function renderSettings() {
     <div class="group-title">🔔 Notifications</div>
     <div class="group">
       <div class="row">
-        <div class="row-left"><div class="row-label">Deal alerts</div><div class="row-sub">Get notified about new matching live deals while the app is open</div></div>
-        <label class="switch"><input type="checkbox" id="notifToggle" ${s.notifEnabled?"checked":""} onchange="toggleNotifEnabled()"><span class="slider"></span></label>
+        <div class="row-left">
+          <div class="row-label">Phone push notifications</div>
+          <div class="row-sub" id="pushStatus">Get alerts even when the app is closed — right on your lock screen. ${pushSupported?"":" (Your browser doesn't support push.)"}</div>
+        </div>
+        <label class="switch"><input type="checkbox" id="pushToggle" ${s.pushEnabled?"checked":""} onchange="togglePush()" ${pushSupported?"":"disabled"}><span class="slider"></span></label>
       </div>
       <div class="row" style="flex-direction:column;align-items:stretch">
         <div class="row-label" style="margin-bottom:4px">Alert me about keywords</div>
@@ -1003,7 +1108,7 @@ function renderLegal() {
     <p><strong>We don't collect, store, or transmit any of your personal data to our own servers.</strong> Everything you create in the app — your watchlist, custom deals, keywords, ZIP code, theme, and settings — is saved locally in your browser using standard local storage and never leaves your device.</p>
     <ul>
       <li>Your <strong>ZIP code</strong> is sent only to the free public <a href="https://www.zippopotam.us" target="_blank" rel="noopener">zippopotam.us</a> API to look up your city/state.</li>
-      <li><strong>Push notifications</strong> are sent by your own browser; we run no notification server.</li>
+      <li>If you turn on <strong>phone push notifications</strong>, your browser stores an anonymous push subscription on the server so it can send deal alerts. It contains no name or email — just a device token and your chosen keyword/store filters. You can turn it off any time, which deletes the token.</li>
     </ul>
 
     <h3>Third-party services</h3>
@@ -1093,10 +1198,25 @@ function toggleNotifStore(k){
   if (i>-1) settings.notifStores.splice(i,1); else settings.notifStores.push(k);
   saveSettings(); renderSettings();
 }
-function testNotif(){
-  const n = {title:"Test alert 🔔", body:"You'll get notified when matching live deals appear.", url:"#"};
-  if (settings.notifEnabled && "Notification" in window && Notification.permission==="granted") pushBrowserNotification(n);
-  else showToast("In-app test: alerts are working!");
+async function testNotif(){
+  // Prefer a real push-style notification via the service worker (shows on lock screen like real alerts).
+  if (pushSupported && Notification.permission === "granted") {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      reg.showNotification("🔥 DealSpot test", {
+        body: "Push notifications are working! You'll be alerted about matching deals.",
+        icon: "icons/icon-192.png", badge: "icons/icon-192.png",
+        tag: "test", vibrate: [120,60,120],
+      });
+      showToast("Test notification sent 🔔");
+      return;
+    } catch(e) {}
+  }
+  if (settings.notifEnabled && "Notification" in window && Notification.permission==="granted") {
+    pushBrowserNotification({title:"Test alert 🔔", body:"Alerts are working."});
+  } else {
+    showToast("Enable phone push above to test lock-screen alerts");
+  }
 }
 function exportData(){
   const data = {settings, watchlist, customDeals, notifs, exported:Date.now()};
@@ -1383,6 +1503,7 @@ updateNavActive();
 updateLocalTab();
 setupRefreshTimer();
 loadDeals(false);
+reRegisterPushOnLoad();
 
 // Show welcome screen for first-time visitors (but not when launched via a
 // PWA shortcut with a deep-link, since that implies they already use it).

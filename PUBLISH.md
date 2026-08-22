@@ -1,46 +1,65 @@
-# 🚀 Publishing DealSpot — the easy way
+# 🚀 Publishing DealSpot
 
-DealSpot is now a **Progressive Web App (PWA)**. That means you can "install" it
-to any phone's home screen — no Google Play / App Store, no fees, no review wait.
+DealSpot is a **Progressive Web App (PWA)** with optional **real push notifications**.
+It installs to a phone's home screen like a native app — no app store required.
 
-## 1. Put it online (free, ~5 minutes)
-The app needs to be hosted at an `https://` address for the install prompt and
-offline mode to work. Easiest free options:
+## 1. Deploy to Render (free)
+1. Push this folder to a public/private GitHub repo.
+2. On https://render.com → **New + → Blueprint** → pick the repo (`render.yaml` configures it).
+   Or create a **Web Service** manually:
+   - Runtime: **Python 3**
+   - Build command: `pip install -r requirements.txt`
+   - Start command: `python server.py`
+   - Plan: **Free**
+3. After deploy you get `https://YOUR-NAME.onrender.com`.
 
-### Option A — Render (recommended, runs the Python backend)
-1. Push the `deals-app` folder to a **GitHub** repository.
-2. Go to https://render.com → **New** → **Web Service** → connect the repo.
-3. Settings:
-   - **Runtime:** Python 3
-   - **Build command:** `pip install --upgrade pip` (no extra deps needed — only stdlib)
-   - **Start command:** `python server.py`
-   - **Environment variable:** `PORT` = `10000` (Render sets this automatically)
-4. Click **Deploy**. You get a free `https://your-app.onrender.com` URL.
+## 2. Enable real push notifications (one-time)
+In the Render dashboard → your service → **Environment**, add these variables:
 
-### Option B — any static host (Netlify / Vercel / GitHub Pages)
-The live `/api/deals` backend won't run on a static host. In that case the app
-automatically falls back to its bundled sample deals. Everything else
-(install, dark mode, alerts, watchlist) still works.
+| Key | Value |
+|-----|-------|
+| `VAPID_PUBLIC_KEY`  | `BDWLfn-UImc8KC2Owztzlblex9iZGiDNZh6V_q44nnwpnExfsV6fvaaffUXaBkJITGpK5SplSAbwWJkYPpvEfgQ` |
+| `VAPID_PRIVATE_KEY` | `MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgyOjSH1awFVxqIARqb8iJzpfhPXP9cZP2hve9P4t8PJuhRANCAAQ1i35_lCJnPCgtjsM7c5W5XsfYmRogzWYelf6uOJ58KZxMX7Fen72mn31F2gZCSExqSuUqZUgG8FiZGD6bxH4E` |
+| `VAPID_SUBJECT`     | `mailto:you@yourdomain.com` (any contact email) |
+| `PUSH_PUBLIC_BASE_URL` | `https://YOUR-NAME.onrender.com` (no trailing slash) |
 
-## 2. Install on a phone
-- **Android (Chrome):** open the URL → tap the **⋮** menu → **Install app** /
-  **Add to Home screen**. A Play-style install prompt also appears automatically.
-- **iPhone / iPad (Safari):** open the URL → tap the **Share ⬆️** button →
-  **Add to Home Screen**. (Safari requires this; the app shows these instructions.)
+Then **Manual Deploy → Clear build cache & deploy**. The keys above were generated
+for your copy of the app; they're safe to use but for a serious launch you can
+regenerate your own pair (see below).
 
-It launches full-screen with its own icon, like a native app.
+### Regenerate your own VAPID keys (optional)
+```python
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import serialization
+import base64
+k = ec.generate_private_key(ec.SECP256R1())
+pub = k.public_key().public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+priv = k.private_bytes(serialization.Encoding.DER, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
+b = lambda x: base64.urlsafe_b64encode(x).rstrip(b'=').decode()
+print("VAPID_PUBLIC_KEY="+b(pub)); print("VAPID_PRIVATE_KEY="+b(priv))
+```
 
-## 3. (Optional) Later, put it on the app stores
-If you eventually want an official Play Store / App Store listing:
-- Wrap the same files with **Capacitor** (`npx cap init` → add android/ios → build).
-- Google Play: $25 one-time developer fee.
-- Apple App Store: $99/year + a Mac to build.
-- Before submitting publicly, replace the Slickdeals RSS feed with official
-  affiliate APIs (Amazon PA-API, Walmart, Best Buy, Target) and add a privacy
-  policy — that keeps you within each platform's and retailer's terms.
+## 3. Keep the server awake (important for push!)
+Render's free plan sleeps after ~15 min idle, which delays push notifications.
+Keep it awake with a free cron that pings the health endpoint every 10 minutes:
+- **cron-job.org** (free): create a job hitting `https://YOUR-NAME.onrender.com/healthz` every 10 min.
+- Or **UptimeRobot** (free), same URL, 5-min interval.
 
-## What was added for PWA support
-- `manifest.webmanifest` — app name, icons, theme colors, shortcuts
-- `sw.js` — service worker (offline shell + cached API responses)
-- `icons/` — 192/512 + maskable + Apple touch icons
-- Install button + iOS instructions under **Settings → About**
+Even without this, the app still works — the first visit after idle just takes ~20s.
+
+## 4. Install on a phone
+- **Android (Chrome):** open the URL → ⋮ → **Install app**. Then enable
+  **Phone push notifications** in Settings; the system prompt will appear.
+- **iPhone (Safari, iOS 16.4+):** Share ⬆️ → **Add to Home Screen**. Open the
+  installed icon, then enable push in Settings (iOS only allows push for
+  apps added to the home screen).
+
+Push fires when the server sees a *new* deal matching your saved keywords/stores/
+minimum discount while the app is closed.
+
+## 5. Notes
+- Real push works on Android Chrome/Edge and on iOS 16.4+ **for installed PWAs**.
+- Your data (watchlist, settings, keywords) stays on the device. The server only
+  stores an anonymous push token + your alert preferences.
+- Live deal data comes from Slickdeals' public RSS. For a monetized launch,
+  switch to official affiliate APIs (Amazon PA-API, Walmart, Best Buy, Target).
