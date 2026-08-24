@@ -87,6 +87,7 @@
     width:100%; max-width:420px; height:100vh; max-height:900px; background:var(--bg);
     position:relative; overflow:hidden; box-shadow:0 25px 80px rgba(0,0,0,0.3);
     display:flex; flex-direction:column;
+    color:var(--text);   /* flips white automatically in dark mode */
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
   }
@@ -244,7 +245,7 @@
     background:linear-gradient(135deg,rgba(255,193,7,.14),rgba(255,87,34,.10)); border:1.5px solid rgba(255,180,0,.45); animation:slideUp .35s cubic-bezier(.16,1,.3,1); }
   .pt-icon { width:42px; height:42px; border-radius:12px; background:linear-gradient(135deg,#ffc400,#ff6a00); color:#fff; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
   .pt-body { flex:1; min-width:0; }
-  .pt-title { font-size:13.5px; font-weight:800; line-height:1.3; }
+  .pt-title { font-size:13.5px; font-weight:800; line-height:1.3; color:var(--text); }
   .pt-sub { font-size:12px; color:var(--text2); margin-top:3px; }
   .pt-sub strong { color:#e08900; }
   [data-theme="dark"] .pt-sub strong { color:#ffc400; }
@@ -813,7 +814,10 @@ async function togglePush() {
     }
     const sub = await subscribePush();
     if (sub) {
-      settings.pushEnabled = true; saveSettings();
+      settings.pushEnabled = true;
+      if (!settings.notifEnabled) settings.notifEnabled = true; // lock-screen push implies in-app alerts too
+      saveSettings();
+      if (document.getElementById("settingsOverlay").classList.contains("open")) renderSettings();
       await sendSubToServer(sub, false);
       showToast("🔔 Phone notifications enabled!");
     } else {
@@ -903,11 +907,25 @@ function checkForAlerts(newDeals) {
   saveNotifs(); updateAlertBadge();
   if (matches.length) showToast(`🔔 ${matches.length} new deal${matches.length>1?"s":""} match your alerts`);
 }
-function pushBrowserNotification(n) {
+const NT_PAGE_ICON = "data:image/svg+xml," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='#6c5ce7'/><text y='.9em' font-size='78' x='11'>🏷️</text></svg>");
+async function pushBrowserNotification(n) {
   try {
-    if ("Notification" in window && Notification.permission === "granted") {
-      new Notification(n.title, {body:n.body, icon:"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏷️</text></svg>"});
+    if ("Notification" in window && Notification.permission !== "granted") return;
+    const opts = {
+      body: n.body || "",
+      icon: NT_PAGE_ICON,
+      tag: (n.dealId ? "deal-" + n.dealId : "dealspot-alert"),
+      data: { url: n.url || "./" },
+      vibrate: [120, 60, 120],
+    };
+    // Prefer the service worker — works in installed PWAs / Android where
+    // plain new Notification() is blocked and silently does nothing.
+    if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+      const reg = await navigator.serviceWorker.ready;
+      await reg.showNotification(n.title, opts);
+      return;
     }
+    new Notification(n.title, opts);
   } catch(e) {}
 }
 function updateAlertBadge() {
@@ -1272,6 +1290,13 @@ function renderSettings() {
         </div>
         <label class="switch"><input type="checkbox" id="pushToggle" ${s.pushEnabled?"checked":""} onchange="togglePush()" ${pushSupported?"":"disabled"}><span class="slider"></span></label>
       </div>
+      <div class="row">
+        <div class="row-left">
+          <div class="row-label">In-app deal alerts</div>
+          <div class="row-sub">Pop-up alert while the app is open (the 🔔 bell always collects them)</div>
+        </div>
+        <label class="switch"><input type="checkbox" id="notifToggle" ${s.notifEnabled?"checked":""} onchange="toggleNotifEnabled()"><span class="slider"></span></label>
+      </div>
       <div class="row" style="flex-direction:column;align-items:stretch">
         <div class="row-label" style="margin-bottom:4px">Alert me about keywords ${premium.active ? '<span style="color:#e08900;font-size:11.5px">· unlimited ⚡</span>' : `<span style="color:var(--text2);font-size:11.5px">· ${s.notifKeywords.length}/${FREE_KEYWORD_LIMIT} free</span>`}</div>
         <div class="row-sub" style="margin-bottom:8px">e.g. PS5, air fryer, Sony headphones — leave empty for all deals in your stores${premium.active ? "" : ". Premium = unlimited keywords."}</div>
@@ -1442,11 +1467,22 @@ function toggleStoreVis(k){
   saveSettings(); renderSettings(); render();
 }
 function toggleNotifEnabled(){
-  settings.notifEnabled = document.getElementById("notifToggle").checked;
-  if (settings.notifEnabled && "Notification" in window && Notification.permission==="default") {
-    Notification.requestPermission().then(p => { if(p!=="granted"){ settings.notifEnabled=false; document.getElementById("notifToggle").checked=false; showToast("Notifications blocked by browser"); } saveSettings(); });
+  const t = document.getElementById("notifToggle");
+  settings.notifEnabled = t.checked;
+  if (settings.notifEnabled && "Notification" in window) {
+    if (Notification.permission === "denied") {
+      settings.notifEnabled = false; t.checked = false;
+      showToast("Blocked — allow notifications in your browser/site settings");
+      saveSettings(); return;
+    }
+    if (Notification.permission === "default") {
+      Notification.requestPermission().then(p => {
+        if (p !== "granted") { settings.notifEnabled = false; t.checked = false; showToast("Notifications not allowed"); }
+        saveSettings();
+      });
+    }
   } else { saveSettings(); }
-  if (settings.notifEnabled) showToast("Deal alerts on 🔔");
+  if (settings.notifEnabled) showToast("In-app alerts on 🔔");
 }
 function addKw(){
   const inp = document.getElementById("kwInput"); const v = inp.value.trim().toLowerCase();
@@ -1514,24 +1550,15 @@ function toggleNotifStore(k){
   saveSettings(); renderSettings();
 }
 async function testNotif(){
-  // Prefer a real push-style notification via the service worker (shows on lock screen like real alerts).
-  if (pushSupported && Notification.permission === "granted") {
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      reg.showNotification("🔥 DealSpot test", {
-        body: "Push notifications are working! You'll be alerted about matching deals.",
-        icon: "icons/icon-192.png", badge: "icons/icon-192.png",
-        tag: "test", vibrate: [120,60,120],
-      });
-      showToast("Test notification sent 🔔");
-      return;
-    } catch(e) {}
+  // Tests the REAL path alerts use: service-worker notification (lock-screen style).
+  if (!("Notification" in window)) { showToast("This browser doesn't support notifications"); return; }
+  let perm = Notification.permission;
+  if (perm === "default") {
+    try { perm = await Notification.requestPermission(); } catch(e) {}
   }
-  if (settings.notifEnabled && "Notification" in window && Notification.permission==="granted") {
-    pushBrowserNotification({title:"Test alert 🔔", body:"Alerts are working."});
-  } else {
-    showToast("Enable phone push above to test lock-screen alerts");
-  }
+  if (perm !== "granted") { showToast("Allow notifications for DealSpot first (browser settings)"); return; }
+  await pushBrowserNotification({title:"🔥 DealSpot test", body:"Alerts are working! You'll be pinged about matching deals.", url:"./"});
+  showToast("Test notification sent 🔔");
 }
 function exportData(){
   const data = {settings, watchlist, customDeals, notifs, exported:Date.now()};
@@ -1701,6 +1728,7 @@ if ("serviceWorker" in navigator) {
 // ── "What's new" on update ─────────────────────────────────────
 const APP_VERSION = "3.1.0";
 const CHANGELOG = [
+  { ic:"🔔", t:"Alerts, fixed & more reliable", d:"A missing In-app alerts switch is back in Settings → Notifications, and alerts now use the same system as lock-screen push — so they actually appear on Android and installed apps." },
   { ic:"🔥", t:"Community voting", d:"Every deal now has 🔥 (still works) and 💀 (dead) buttons. Deals voted dead sink to the bottom automatically — no more wasted taps." },
   { ic:"📧", t:"Weekly deal digest", d:"Get the Top 10 deals of the week in your inbox. Subscribe in Settings — one email a week, no spam." },
   { ic:"📣", t:"Share DealSpot", d:"New share button in Settings → About sends the app link to friends in one tap." },

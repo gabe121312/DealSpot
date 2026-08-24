@@ -893,7 +893,11 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    _ensure_vapid()
+    if HAS_PUSH:
+        _ensure_vapid()
+    else:
+        print("[push] pywebpush/cryptography not installed — push disabled, "
+              "app + deals still work")
     _ensure_premium_secret()
     load_subscriptions()
     load_votes()
