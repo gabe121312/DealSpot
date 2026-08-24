@@ -78,11 +78,28 @@ app — you just connect Stripe.
 
 | Key | Value |
 |-----|-------|
-| `STRIPE_SECRET_KEY` | your `sk_live_...` key |
+| `STRIPE_SECRET_KEY` | your `sk_live_...` (or `sk_test_...` while testing) key |
 | `STRIPE_PAYMENT_URL` | the payment link URL from step 3 (`https://buy.stripe.com/...`) |
 | `PREMIUM_PRICE_LABEL` | what to show, e.g. `$2.99/month` |
 | `PREMIUM_SECRET`   | `db2da09d9f7c5d1fc1ccd32d67e547a7492f32b9cd60ebe88e46751f378002c3` (never change after launch!) |
 | `PREMIUM_EARLY_MINUTES` | `8` (free-user delay — you already set this in render.yaml) |
+
+### Add an ANNUAL plan (optional, recommended 💰)
+Two prices = more choice = more upgrades ("Annual — best value" appears under
+the monthly button automatically):
+1. Stripe → **Product catalog** → your `DealSpot Premium` product → **Add price**
+   → **Recurring, yearly**, e.g. `$19.99` per year → Save.
+2. **Payment links → + New** → pick the *yearly* price → same **After payment**
+   redirect URL: `https://YOUR-NAME.onrender.com/?session_id={CHECKOUT_SESSION_ID}`
+   → copy the new link.
+3. Add in Render → Environment:
+
+| Key | Value |
+|-----|-------|
+| `STRIPE_PAYMENT_URL_YEARLY` | the annual payment link URL |
+| `PREMIUM_PRICE_LABEL_YEARLY` | e.g. `$19.99/year` |
+
+No code change needed — the second button appears on its own once set.
 
 6. **Manual Deploy → Clear build cache & deploy.**
 

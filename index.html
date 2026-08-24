@@ -588,7 +588,7 @@ let premium = {
   session: localStorage.getItem("ds_premium_session") || "",
   mode: "", email: "",
 };
-let premiumCfg = { enabled:false, price:"", paymentUrl:"", manageUrl:"", earlyMinutes:8 };
+let premiumCfg = { enabled:false, price:"", paymentUrl:"", yearlyUrl:"", yearlyPrice:"", manageUrl:"", earlyMinutes:8 };
 let premiumTeaser = null; // {count, unlockAt} — deals free users can't see yet
 let votes = JSON.parse(localStorage.getItem("ds_votes") || "{}"); // dealId -> "fire"|"dead"
 
@@ -795,8 +795,7 @@ function showPremiumModal(justUpgraded) {
         <div class="prem-feat"><span class="fi">👑</span><span>Supporter badge + freshest-deal badges</span></div>
       </div>
       ${premiumCfg.enabled
-        ? `<a class="btn btn-primary btn-block" style="text-align:center;text-decoration:none" href="${premiumCfg.paymentUrl}" target="_blank" rel="noopener">⚡ ${TF("goPremium", escapeHtml(premiumCfg.price || "$2.99/month"))}</a>
-           <div style="text-align:center;font-size:11.5px;color:var(--text2);margin-top:8px">Secure payment via Stripe · cancel any time</div>`
+        ? `<a class="btn btn-primary btn-block" style="text-align:center;text-decoration:none" href="${premiumCfg.paymentUrl}" target="_blank" rel="noopener">⚡ ${TF("goPremium", escapeHtml(premiumCfg.price || "$2.99/month"))}</a>` + (premiumCfg.yearlyUrl ? `<a class="btn btn-ghost btn-block" style="text-align:center;text-decoration:none;border:1.5px solid var(--accent)" href="${premiumCfg.yearlyUrl}" target="_blank" rel="noopener">🎁 Annual — ${escapeHtml(premiumCfg.yearlyPrice)} · best value</a>` : "") + `<div style="text-align:center;font-size:11.5px;color:var(--text2);margin-top:8px">Secure payment via Stripe · cancel any time</div>`
         : `<div class="btn btn-primary btn-block" style="text-align:center;opacity:.55">Payments coming soon 👷</div>
            <div style="text-align:center;font-size:11.5px;color:var(--text2);margin-top:8px">Check back shortly!</div>`}
       <div class="modal-actions" style="padding:0;margin-top:14px"><button class="btn btn-cancel" style="flex:1" onclick="closePremiumModal()">Maybe later</button></div>`;
@@ -1263,7 +1262,7 @@ function renderSettings() {
         <div class="row-label" style="margin-bottom:4px">Be first in line for every deal 👑</div>
         <div class="row-sub" style="margin-bottom:10px">Members see new deals <strong>${premiumCfg.earlyMinutes||8} minutes before</strong> everyone else, get instant phone alerts, and unlimited keywords.</div>
         ${premiumCfg.enabled
-          ? `<a class="btn btn-primary btn-block" style="text-decoration:none;text-align:center" href="${premiumCfg.paymentUrl}" target="_blank" rel="noopener">⚡ ${TF("goPremium", escapeHtml(premiumCfg.price || "$2.99/month"))}</a>`
+          ? `<a class="btn btn-primary btn-block" style="text-decoration:none;text-align:center" href="${premiumCfg.paymentUrl}" target="_blank" rel="noopener">⚡ ${TF("goPremium", escapeHtml(premiumCfg.price || "$2.99/month"))}</a>` + (premiumCfg.yearlyUrl ? `<a class="btn btn-ghost btn-block" style="text-decoration:none;text-align:center;border:1.5px solid var(--accent)" href="${premiumCfg.yearlyUrl}" target="_blank" rel="noopener">🎁 Annual — ${escapeHtml(premiumCfg.yearlyPrice)} · best value</a>` : "")
           : `<button class="btn btn-primary btn-block" style="opacity:.55" onclick="showToast('Payments coming soon 👷')">⚡ Premium</button>`}
         <button class="btn btn-ghost btn-block" onclick="openPremium()">See what's included</button>
         <details style="margin-top:4px">

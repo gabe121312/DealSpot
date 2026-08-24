@@ -31,8 +31,12 @@ services:
         sync: false     # sk_live_... from Stripe dashboard
       - key: STRIPE_PAYMENT_URL
         sync: false     # your Stripe Payment Link URL
+      - key: STRIPE_PAYMENT_URL_YEARLY
+        sync: false     # optional: annual-plan payment link URL
       - key: PREMIUM_PRICE_LABEL
         sync: false     # e.g. "$2.99/month"
+      - key: PREMIUM_PRICE_LABEL_YEARLY
+        sync: false     # e.g. "$19.99/year"
       - key: STRIPE_MANAGE_URL
         sync: false     # optional: Stripe customer portal link
       # ── Extras: affiliate, tips, weekly email digest ──

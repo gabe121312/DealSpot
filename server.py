@@ -128,8 +128,10 @@ PREMIUM_EARLY_MIN = int(os.environ.get("PREMIUM_EARLY_MINUTES", "8"))
 FREE_DELAY_SEC = PREMIUM_EARLY_MIN * 60
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_PAYMENT_URL = os.environ.get("STRIPE_PAYMENT_URL", "")
+STRIPE_PAYMENT_URL_YEARLY = os.environ.get("STRIPE_PAYMENT_URL_YEARLY", "")
 STRIPE_MANAGE_URL = os.environ.get("STRIPE_MANAGE_URL", "")
 PREMIUM_PRICE_LABEL = os.environ.get("PREMIUM_PRICE_LABEL", "$2.99/month")
+PREMIUM_PRICE_LABEL_YEARLY = os.environ.get("PREMIUM_PRICE_LABEL_YEARLY", "")
 PREMIUM_SECRET = os.environ.get("PREMIUM_SECRET", "")
 
 # ── Extras: affiliate tags, tip jar, weekly email digest ───────────────
@@ -844,6 +846,8 @@ class Handler(SimpleHTTPRequestHandler):
                 "enabled": bool(STRIPE_SECRET_KEY and STRIPE_PAYMENT_URL),
                 "price": PREMIUM_PRICE_LABEL,
                 "paymentUrl": STRIPE_PAYMENT_URL,
+                "yearlyUrl": STRIPE_PAYMENT_URL_YEARLY,
+                "yearlyPrice": PREMIUM_PRICE_LABEL_YEARLY,
                 "manageUrl": STRIPE_MANAGE_URL,
                 "earlyMinutes": PREMIUM_EARLY_MIN,
                 "premium": bool(payload),
