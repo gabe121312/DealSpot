@@ -925,7 +925,12 @@ function dealHref(d) { return (d && (d.url || d.threadUrl)) || "#"; }
 async function loadDeals(force) {
   document.getElementById("deal-count").innerHTML = `<span class="live-dot"></span> Loading live deals…`;
   try {
-    const res = await fetch("/api/deals" + (force ? "?refresh=1" : "") + (premium.token ? (force ? "&" : "?") + "pt=" + encodeURIComponent(premium.token) : ""), {cache:"no-store"});
+    const params = [];
+    if (force) params.push("refresh=1");
+    if (premium.token) params.push("pt=" + encodeURIComponent(premium.token));
+    const _lang = curLang();
+    if (_lang !== "en") params.push("lang=" + encodeURIComponent(_lang));
+    const res = await fetch("/api/deals" + (params.length ? "?" + params.join("&") : ""), {cache:"no-store"});
     const data = await res.json();
     if (data.deals && data.deals.length) {
       const newOnes = data.deals.filter(d => !seenIds.includes(String(d.id)));
@@ -1798,7 +1803,7 @@ if ("serviceWorker" in navigator) {
 // ── "What's new" on update ─────────────────────────────────────
 const APP_VERSION = "3.4.2";
 const CHANGELOG = [
-  { ic:"🌍", t:"DealSpot speaks 24 languages", d:"Pick your language in Settings → Appearance → Language: Español, Français, Deutsch, 中文, العربية, हिन्दी, 한국어, Português, Русский, Türkçe and more. Arabic, Hebrew and Urdu even flip the app right-to-left." },
+  { ic:"🌍", t:"DealSpot speaks 24 languages", d:"Pick your language in Settings → Appearance → Language: Español, Français, Deutsch, 中文, العربية, हिन्दी, 한국어, Português, Русский, Türkçe and more. Deal titles translate automatically too, and Arabic, Hebrew and Urdu flip the app right-to-left." },
   { ic:"🔔", t:"Alerts, fixed & more reliable", d:"A missing In-app alerts switch is back in Settings → Notifications, and alerts now use the same system as lock-screen push — so they actually appear on Android and installed apps." },
   { ic:"🔥", t:"Community voting", d:"Every deal now has 🔥 (still works) and 💀 (dead) buttons. Deals voted dead sink to the bottom automatically — no more wasted taps." },
   { ic:"📧", t:"Weekly deal digest", d:"Get the Top 10 deals of the week in your inbox. Subscribe in Settings — one email a week, no spam." },
@@ -1936,27 +1941,6 @@ try {
     checkWhatsNew(); // returning user → show changelog if the app was updated
   }
 } catch(e) { checkWhatsNew(); }
-</script>
-</body>
-</html>
-ch(e) { checkWhatsNew(); }
-</script>
-</body>
-</html>
-at implies they already use it).
-try {
-  const isFirstRun = !localStorage.getItem("ds_onboarded");
-  const hasDeepLink = new URLSearchParams(location.search).get("tab") || new URLSearchParams(location.search).get("nav");
-  if (isFirstRun && !hasDeepLink) {
-    setTimeout(showOnboarding, 600);
-  } else {
-    checkWhatsNew(); // returning user → show changelog if the app was updated
-  }
-} catch(e) { checkWhatsNew(); }
-</script>
-</body>
-</html>
-ch(e) { checkWhatsNew(); }
 </script>
 </body>
 </html>

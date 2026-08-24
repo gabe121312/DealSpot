@@ -141,6 +141,15 @@ TIP_URL = os.environ.get("TIP_URL", "")            # e.g. https://ko-fi.com/your
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")   # free @ resend.com
 DIGEST_FROM = os.environ.get("DIGEST_FROM", "DealSpot <dealspot@resend.dev>")
 
+# ── Deal-title translation (MyMemory, free, no key) ────────────────────
+MYMEMORY_EMAIL = os.environ.get("MYMEMORY_EMAIL", "")   # optional: raises free quota
+SUPPORTED_LANGS = {"es","fr","de","pt","it","nl","pl","tr","ru","uk","ar","he",
+                   "hi","bn","ur","zh-CN","zh-TW","ja","ko","vi","th","id","tl","el"}
+TRANSLATIONS_FILE = os.path.join(HERE, "translations.json")
+_translations = {}          # lang -> {deal id: translated name}
+_tr_lock = threading.Lock()
+_tr_fail_until = 0          # backoff timestamp after service errors
+
 # ── Community votes + digest list state ────────────────────────────────
 VOTES_FILE = os.path.join(HERE, "votes.json")
 _votes = {}                    # deal id -> {"fire": n, "dead": n}
@@ -276,6 +285,76 @@ def save_digest():
         os.replace(tmp, DIGEST_FILE)
     except Exception as e:
         print("[digest] could not save:", e)
+
+
+def load_translations():
+    try:
+        with open(TRANSLATIONS_FILE) as f:
+            _translations.update(json.load(f))
+    except Exception:
+        pass
+
+
+def save_translations():
+    try:
+        tmp = TRANSLATIONS_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(_translations, f)
+        os.replace(tmp, TRANSLATIONS_FILE)
+    except Exception as e:
+        print("[i18n] could not save:", e)
+
+
+def _mymemory_translate(text, lang):
+    """One short English string -> target language. Free, no key."""
+    url = ("https://api.mymemory.translated.net/get?q=" + quote(text[:450]) +
+           "&langpair=en|" + lang)
+    if MYMEMORY_EMAIL:
+        url += "&de=" + quote(MYMEMORY_EMAIL)
+    req = Request(url, headers={"User-Agent": UA})
+    with urlopen(req, timeout=8) as r:
+        data = json.load(r)
+    t = ((data.get("responseData") or {}).get("translatedText") or "").strip()
+    if not t:
+        return None
+    low = t.lower()
+    # service error / quota messages come back as "translatedText"
+    if ("mymemory warning" in low or "please select" in low or
+            "query length" in low or "invalid" in low[:30]):
+        return None
+    return t
+
+
+def translate_deal_names(deals, lang):
+    """Return deal copies with names translated to `lang` (cached forever)."""
+    global _tr_fail_until
+    with _tr_lock:
+        cache = _translations.setdefault(lang, {})
+        current = {d["id"] for d in deals}
+        # prune deals that rotated out of the feed so the file stays small
+        _translations[lang] = {k: v for k, v in cache.items() if k in current}
+        cache = _translations[lang]
+        todo = [d for d in deals if d["id"] not in cache][:6]
+    if todo and time.time() >= _tr_fail_until:
+        ok = 0
+        for d in todo:
+            try:
+                t = _mymemory_translate(d["name"], lang)
+            except Exception as e:
+                print("[i18n] service error — backing off 10 min:", e)
+                _tr_fail_until = time.time() + 600
+                break
+            if t:
+                with _tr_lock:
+                    _translations[lang][d["id"]] = t
+                ok += 1
+        if ok:
+            with _tr_lock:
+                save_translations()
+            print(f"[i18n] translated {ok} titles → {lang}")
+    with _tr_lock:
+        c = _translations.get(lang, {})
+        return [dict(d, name=c[d["id"]]) if d["id"] in c else d for d in deals]
 
 
 def apply_affiliate(url):
@@ -732,6 +811,10 @@ class Handler(SimpleHTTPRequestHandler):
                     for d in deals:
                         d["votes"] = _votes.get(d["id"]) or {"fire": 0, "dead": 0}
                         d["url"] = apply_affiliate(d.get("url"))
+                # Translate item names when the user picked a language
+                lang = (qs.get("lang") or [""])[0]
+                if lang in SUPPORTED_LANGS:
+                    deals = translate_deal_names(deals, lang)
                 out = {"deals": deals, "count": len(deals),
                        "updated": int(_cache["ts"] * 1000),
                        "source": "Slickdeals live RSS", "premium": bool(payload)}
@@ -902,6 +985,7 @@ if __name__ == "__main__":
     load_subscriptions()
     load_votes()
     load_digest()
+    load_translations()
     print(f"DealSpot running at http://0.0.0.0:{PORT}")
     print(f"[push] available: {HAS_PUSH} | subscribers: {len(_subs)} | "
           f"public key: {VAPID_PUBLIC[:16]}…")
