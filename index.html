@@ -668,10 +668,12 @@ function TF(key, ...vals){
   return tmpl;
 }
 function applyLangDir(){
+  // Only tell the browser which language we're in — layout ALWAYS stays
+  // left-to-right so the app looks identical in every language.
   const l = curLang();
   try { document.documentElement.lang = l; } catch(e) {}
   const phone = document.getElementById("phone");
-  if (phone) phone.setAttribute("dir", (I18N_OK && DS_RTL.includes(l)) ? "rtl" : "ltr");
+  if (phone) phone.setAttribute("dir", "ltr");
 }
 function applyI18n(root){
   // Translate exact-match text nodes + placeholders (English → current language)
@@ -1803,7 +1805,7 @@ if ("serviceWorker" in navigator) {
 // ── "What's new" on update ─────────────────────────────────────
 const APP_VERSION = "3.4.2";
 const CHANGELOG = [
-  { ic:"🌍", t:"DealSpot speaks 24 languages", d:"Pick your language in Settings → Appearance → Language: Español, Français, Deutsch, 中文, العربية, हिन्दी, 한국어, Português, Русский, Türkçe and more. Deal titles translate automatically too, and Arabic, Hebrew and Urdu flip the app right-to-left." },
+  { ic:"🌍", t:"DealSpot speaks 24 languages", d:"Pick your language in Settings → Appearance → Language: Español, Français, Deutsch, 中文, العربية, हिन्दी, 한국어, Português, Русский, Türkçe and more. Deal titles translate automatically too, and the layout stays identical in every language." },
   { ic:"🔔", t:"Alerts, fixed & more reliable", d:"A missing In-app alerts switch is back in Settings → Notifications, and alerts now use the same system as lock-screen push — so they actually appear on Android and installed apps." },
   { ic:"🔥", t:"Community voting", d:"Every deal now has 🔥 (still works) and 💀 (dead) buttons. Deals voted dead sink to the bottom automatically — no more wasted taps." },
   { ic:"📧", t:"Weekly deal digest", d:"Get the Top 10 deals of the week in your inbox. Subscribe in Settings — one email a week, no spam." },
