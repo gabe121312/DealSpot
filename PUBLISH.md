@@ -115,6 +115,7 @@ Set it to `15` or `5` — the app updates the wording automatically.
 No redeploy needed — saving the env var restarts the service and the feature activates.
 
 **Also new in the app itself (no setup needed):**
+- 🌍 **24 languages** — Settings → Appearance → Language (or 🌐 Auto, which follows the phone's language). Español, Français, Deutsch, Português, Italiano, Nederlands, Polski, Türkçe, Русский, Українська, العربية, עברית, हिन्दी, বাংলা, اردو, 中文（简/繁）, 日本語, 한국어, Tiếng Việt, ไทย, Bahasa Indonesia, Filipino, Ελληνικά. Arabic/Hebrew/Urdu flip the whole app right-to-left. Translations live in **lang.js — keep that file with the app** (if it's ever missing, DealSpot quietly falls back to English). Improve any translation by editing lang.js; each language is one list.
 - 🔥💀 **Community voting** — users mark deals "still good" or "dead"; deals with 3+ dead votes sink to the bottom. Votes are stored on the server (votes.json — note: on Render's free tier, stored votes reset when the service restarts; upgrade to a paid disk later if the community grows).
 - 📣 **Share DealSpot** button in Settings → About.
 - 📧 **Weekly digest signup box** in Settings (collects emails immediately; sending starts the moment `RESEND_API_KEY` is set).

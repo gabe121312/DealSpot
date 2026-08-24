@@ -547,6 +547,7 @@
 </div>
 
 
+<script src="lang.js"></script>
 <script>
 // ── Offline fallback deals ─────────────────────────────────────
 const FALLBACK = [
@@ -613,6 +614,7 @@ function castVote(id, kind) {
 
 const DEFAULT_SETTINGS = {
   theme: "light",
+  language: "auto",
   defaultTab: "all",
   defaultSort: "biggest",
   hiddenStores: [],
@@ -638,6 +640,64 @@ function saveSettings() {
   _syncTimer = setTimeout(syncPushPrefs, 1500);
 }
 function saveNotifs() { localStorage.setItem("ds_notifs", JSON.stringify(notifs.slice(0, 50))); }
+
+// ── Language / i18n 🌍 ─────────────────────────────────────────
+const TF_EN = {liveDeals:"{n} live deals",nItems:"{n} items",saveX:"Save {a}",teaserN:"{n} new deals Premium members are seeing right now",goPremium:"Go Premium — {p}",unlockOr:"— or upgrade to see now"};
+// If lang.js failed to load, fall back to plain English everywhere.
+const I18N_OK = (typeof DS_LANGS !== "undefined" && typeof DS_T !== "undefined" && typeof DS_TF !== "undefined");
+function curLang(){
+  if (!I18N_OK) return "en";
+  if (settings.language && settings.language !== "auto") return settings.language;
+  const n = (navigator.language || "en").toLowerCase();
+  if (DS_T[n]) return n;
+  const two = n.slice(0,2);
+  return Object.keys(DS_T).find(k => k.slice(0,2) === two) || "en";
+}
+function T(s){
+  const l = curLang();
+  if (!I18N_OK || l === "en") return s;
+  const d = DS_T[l];
+  return (d && d[s]) || s;
+}
+function TF(key, ...vals){
+  const l = curLang();
+  let tmpl = (I18N_OK && l !== "en" && DS_TF[l] && DS_TF[l][key])
+          || (I18N_OK && DS_TF.en && DS_TF.en[key])
+          || TF_EN[key] || key;
+  vals.forEach(v => { tmpl = tmpl.replace(/\{[nap]\}/, String(v)); });
+  return tmpl;
+}
+function applyLangDir(){
+  const l = curLang();
+  try { document.documentElement.lang = l; } catch(e) {}
+  const phone = document.getElementById("phone");
+  if (phone) phone.setAttribute("dir", (I18N_OK && DS_RTL.includes(l)) ? "rtl" : "ltr");
+}
+function applyI18n(root){
+  // Translate exact-match text nodes + placeholders (English → current language)
+  if (!root) return;
+  try {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(n => {
+      const raw = n.nodeValue, t = raw.trim();
+      if (!t || t.length > 60) return;
+      const r = T(t);
+      if (r !== t) n.nodeValue = raw.replace(t, r);
+    });
+    if (root.querySelectorAll) root.querySelectorAll("[placeholder]").forEach(el => {
+      if (!el.dataset.phOrig) el.dataset.phOrig = el.getAttribute("placeholder") || "";
+      if (el.dataset.phOrig) el.setAttribute("placeholder", T(el.dataset.phOrig));
+    });
+  } catch(e) {}
+}
+function setLanguage(code){
+  settings.language = code;
+  localStorage.setItem("ds_settings", JSON.stringify(settings));
+  try { localStorage.setItem("ds_lang_reloading", "1"); } catch(e) {}
+  location.reload();
+}
 
 // ── Premium ⚡ ──────────────────────────────────────────────────
 function isPremium() { return !!premium.active; }
@@ -733,12 +793,13 @@ function showPremiumModal(justUpgraded) {
         <div class="prem-feat"><span class="fi">👑</span><span>Supporter badge + freshest-deal badges</span></div>
       </div>
       ${premiumCfg.enabled
-        ? `<a class="btn btn-primary btn-block" style="text-align:center;text-decoration:none" href="${premiumCfg.paymentUrl}" target="_blank" rel="noopener">⚡ Go Premium — ${escapeHtml(premiumCfg.price || "$2.99/month")}</a>
+        ? `<a class="btn btn-primary btn-block" style="text-align:center;text-decoration:none" href="${premiumCfg.paymentUrl}" target="_blank" rel="noopener">⚡ ${TF("goPremium", escapeHtml(premiumCfg.price || "$2.99/month"))}</a>
            <div style="text-align:center;font-size:11.5px;color:var(--text2);margin-top:8px">Secure payment via Stripe · cancel any time</div>`
         : `<div class="btn btn-primary btn-block" style="text-align:center;opacity:.55">Payments coming soon 👷</div>
            <div style="text-align:center;font-size:11.5px;color:var(--text2);margin-top:8px">Check back shortly!</div>`}
       <div class="modal-actions" style="padding:0;margin-top:14px"><button class="btn btn-cancel" style="flex:1" onclick="closePremiumModal()">Maybe later</button></div>`;
   }
+  applyI18n(document.getElementById("premiumModalBody"));
   document.getElementById("premiumModal").classList.add("open");
 }
 let _teaserTimer = null;
@@ -985,25 +1046,26 @@ function render() {
     ? `<span style="display:inline-flex;align-items:center;gap:3px;margin-left:7px;color:var(--accent);font-weight:700">📍 ${escapeHtml(settings.city?settings.city+", "+settings.state:settings.zip)}</span>`
     : "";
   document.getElementById("deal-count").innerHTML = isLive
-    ? `<span class="live-dot"></span> ${total} live deals · ${ago}${loc}${premium.active ? '<span class="crown-chip">⚡ PREMIUM</span>' : ""}`
+    ? `<span class="live-dot"></span> ${TF("liveDeals", total)} · ${ago}${loc}${premium.active ? '<span class="crown-chip">⚡ PREMIUM</span>' : ""}`
     : `${total} sample deals${loc}${premium.active ? '<span class="crown-chip">⚡ PREMIUM</span>' : ""}`;
 
-  const titles = {all:"🔥 All Live Deals",local:"📍 Near You",amazon:"Amazon Deals",walmart:"Walmart Deals",samsclub:"Sam's Club Deals",bestbuy:"Best Buy Deals",target:"Target Deals",other:"Other Stores",watchlist:"❤️ Your Watchlist"};
+  const SPECIAL_TITLES = {all:"🔥 All Live Deals",local:"📍 Near You",other:"Other Stores",watchlist:"❤️ Your Watchlist"};
+  const titleText = SPECIAL_TITLES[currentStore] || ((STORE_LABELS[currentStore] || "") + " " + T("Deals")).trim();
   const teaserHtml = (!premium.active && premiumTeaser && premiumTeaser.count > 0 && currentStore === "all")
     ? `<div class="premium-teaser" onclick="openPremium()">
          <div class="pt-icon">⚡</div>
          <div class="pt-body">
-           <div class="pt-title">${premiumTeaser.count} new deal${premiumTeaser.count>1?"s":""} Premium members are seeing right now</div>
-           <div class="pt-sub">Unlocks for you in <strong id="teaserCountdown">--:--</strong> — or upgrade to see now</div>
+           <div class="pt-title">${TF("teaserN", premiumTeaser.count)}</div>
+           <div class="pt-sub">${T("Unlocks for you in")} <strong id="teaserCountdown">--:--</strong> ${TF("unlockOr")}</div>
          </div>
-         <div class="pt-btn">⚡ Upgrade</div>
+         <div class="pt-btn">${T("⚡ Upgrade")}</div>
        </div>` : "";
   if (list.length === 0) {
     el.innerHTML = teaserHtml + `<div class="empty"><div class="empty-icon">${currentStore==="watchlist"?"💔":"🔍"}</div><h3>${currentStore==="watchlist"?"Your watchlist is empty":"No deals found"}</h3><p>${currentStore==="watchlist"?"Tap the heart on any deal to save it here.":"Try adjusting your filters or search terms."}</p></div>`;
     startTeaserCountdown();
     return;
   }
-  el.innerHTML = `<div class="section-title"><h2>${titles[currentStore]||"Deals"}</h2><span>${list.length} item${list.length!==1?"s":""}</span></div>` +
+  el.innerHTML = `<div class="section-title"><h2>${titleText}</h2><span>${TF("nItems", list.length)}</span></div>` +
     teaserHtml +
     list.map((d,i) => {
       const p = pct(d), inList = watchlist.includes(String(d.id));
@@ -1011,7 +1073,7 @@ function render() {
       const label = d.storeLabel || STORE_LABELS[d.store] || "Store";
       const price = d.sale ? `$${d.sale.toFixed(2)}` : "View deal";
       const orig = d.orig ? `<span class="price-orig">$${d.orig.toFixed(2)}</span>` : "";
-      const save = (d.sale && d.orig && d.orig>d.sale) ? `<div class="price-save">Save $${(d.orig-d.sale).toFixed(2)}</div>` : "";
+      const save = (d.sale && d.orig && d.orig>d.sale) ? `<div class="price-save">${TF("saveX", "$" + (d.orig-d.sale).toFixed(2))}</div>` : "";
       const badgeHtml = (p > 0 ? `<span class="discount-badge">-${p}%</span>` : "") + (fresh ? `<span class="new-badge">NEW</span>` : "");
       let localBadge = "";
       if (d.ymmv) localBadge = `<span class="local-badge ymmv">YMMV</span>`;
@@ -1141,6 +1203,7 @@ function renderAlerts() {
       </div>
       ${n.read ? "" : '<div class="notif-dot"></div>'}
     </div>`).join("");
+  applyI18n(el);
 }
 
 // ── Settings overlay ───────────────────────────────────────────
@@ -1193,8 +1256,8 @@ function renderSettings() {
         <div class="row-label" style="margin-bottom:4px">Be first in line for every deal 👑</div>
         <div class="row-sub" style="margin-bottom:10px">Members see new deals <strong>${premiumCfg.earlyMinutes||8} minutes before</strong> everyone else, get instant phone alerts, and unlimited keywords.</div>
         ${premiumCfg.enabled
-          ? `<a class="btn btn-primary btn-block" style="text-decoration:none;text-align:center" href="${premiumCfg.paymentUrl}" target="_blank" rel="noopener">⚡ Go Premium — ${escapeHtml(premiumCfg.price || "$2.99/month")}</a>`
-          : `<button class="btn btn-primary btn-block" style="opacity:.55" onclick="showToast('Payments coming soon 👷')">⚡ Premium — coming soon</button>`}
+          ? `<a class="btn btn-primary btn-block" style="text-decoration:none;text-align:center" href="${premiumCfg.paymentUrl}" target="_blank" rel="noopener">⚡ ${TF("goPremium", escapeHtml(premiumCfg.price || "$2.99/month"))}</a>`
+          : `<button class="btn btn-primary btn-block" style="opacity:.55" onclick="showToast('Payments coming soon 👷')">⚡ Premium</button>`}
         <button class="btn btn-ghost btn-block" onclick="openPremium()">See what's included</button>
         <details style="margin-top:4px">
           <summary style="font-size:12.5px;color:var(--text2);cursor:pointer;padding:6px 0">Restore a purchase</summary>
@@ -1210,12 +1273,18 @@ function renderSettings() {
     ${premSection}
     <div class="group-title">Appearance</div>
     <div class="group">
-      <div class="row"><div class="row-left"><div class="row-label">Theme</div></div>
+      <div class="row"><div class="row-left"><div class="row-label">${T("Theme")}</div></div>
         <div class="seg">
-          <button class="${s.theme==="light"?"active":""}" onclick="setTheme('light')">☀️ Light</button>
-          <button class="${s.theme==="dark"?"active":""}" onclick="setTheme('dark')">🌙 Dark</button>
-          <button class="${s.theme==="system"?"active":""}" onclick="setTheme('system')">💻 System</button>
+          <button class="${s.theme==="light"?"active":""}" onclick="setTheme('light')">${T("☀️ Light")}</button>
+          <button class="${s.theme==="dark"?"active":""}" onclick="setTheme('dark')">${T("🌙 Dark")}</button>
+          <button class="${s.theme==="system"?"active":""}" onclick="setTheme('system')">${T("💻 System")}</button>
         </div>
+      </div>
+      <div class="row"><div class="row-left"><div class="row-label">${T("Language")} 🌍</div><div class="row-sub">Español · Français · Deutsch · 中文 · العربية …</div></div>
+        <select class="sel" onchange="setLanguage(this.value)">
+          <option value="auto" ${!s.language||s.language==="auto"?"selected":""}>🌐 Auto</option>
+          ${I18N_OK ? DS_LANGS.map(l=>`<option value="${l.code}" ${s.language===l.code?"selected":""}>${l.native}</option>`).join("") : ""}
+        </select>
       </div>
     </div>
 
@@ -1362,10 +1431,11 @@ function renderSettings() {
       <button class="btn btn-ghost btn-block" onclick="shareApp()">📣 Share DealSpot with a friend</button>
       ${premiumCfg.tipUrl ? `<a class="btn btn-ghost btn-block" style="text-decoration:none;text-align:center" href="${premiumCfg.tipUrl}" target="_blank" rel="noopener">☕ Tip jar — support DealSpot</a>` : ""}
       <button class="btn btn-ghost btn-block" onclick="showOnboarding()">👋 Replay welcome tour</button>
-      <button class="btn btn-ghost btn-block" onclick="openLegal()">📄 Privacy Policy & Disclosures</button>
+      <button class="btn btn-ghost btn-block" onclick="openLegal()">📄 ${T("Privacy Policy & Disclosures")}</button>
     </div>
   `;
   refreshInstallButton();
+  applyI18n(document.getElementById("settingsBody"));
 }
 
 function openLegal() {
@@ -1726,8 +1796,9 @@ if ("serviceWorker" in navigator) {
 }
 
 // ── "What's new" on update ─────────────────────────────────────
-const APP_VERSION = "3.1.0";
+const APP_VERSION = "3.4.2";
 const CHANGELOG = [
+  { ic:"🌍", t:"DealSpot speaks 24 languages", d:"Pick your language in Settings → Appearance → Language: Español, Français, Deutsch, 中文, العربية, हिन्दी, 한국어, Português, Русский, Türkçe and more. Arabic, Hebrew and Urdu even flip the app right-to-left." },
   { ic:"🔔", t:"Alerts, fixed & more reliable", d:"A missing In-app alerts switch is back in Settings → Notifications, and alerts now use the same system as lock-screen push — so they actually appear on Android and installed apps." },
   { ic:"🔥", t:"Community voting", d:"Every deal now has 🔥 (still works) and 💀 (dead) buttons. Deals voted dead sink to the bottom automatically — no more wasted taps." },
   { ic:"📧", t:"Weekly deal digest", d:"Get the Top 10 deals of the week in your inbox. Subscribe in Settings — one email a week, no spam." },
@@ -1804,8 +1875,9 @@ function renderOnboarding() {
     <div class="ob-dots">${dots}</div>`;
   const btn = document.getElementById("obBtn");
   const btn2 = document.getElementById("obBtn2");
-  btn.textContent = obStep === OB_STEPS.length-1 ? "Let's go! 🚀" : "Next";
+  btn.textContent = obStep === OB_STEPS.length-1 ? "Let's go! 🚀" : T("Next");
   btn2.style.display = obStep === OB_STEPS.length-1 ? "block" : "none";
+  applyI18n(center);
 }
 function obNext() {
   if (obStep < OB_STEPS.length-1) { obStep++; renderOnboarding(); return; }
@@ -1844,12 +1916,14 @@ applyTheme();
 sortDesc = settings.defaultSort === "biggest";
 currentStore = settings.defaultTab;
 applyDeepLink();
+applyLangDir();
 document.querySelectorAll(".store-tab").forEach(b => b.classList.toggle("active", b.dataset.store === currentStore));
 updateNavActive();
 updateLocalTab();
 setupRefreshTimer();
 initPremium().then(() => loadDeals(false));
 reRegisterPushOnLoad();
+applyI18n(document.getElementById("phone")); // translate nav + static header once
 
 // Show welcome screen for first-time visitors (but not when launched via a
 // PWA shortcut with a deep-link, since that implies they already use it).
@@ -1862,6 +1936,27 @@ try {
     checkWhatsNew(); // returning user → show changelog if the app was updated
   }
 } catch(e) { checkWhatsNew(); }
+</script>
+</body>
+</html>
+ch(e) { checkWhatsNew(); }
+</script>
+</body>
+</html>
+at implies they already use it).
+try {
+  const isFirstRun = !localStorage.getItem("ds_onboarded");
+  const hasDeepLink = new URLSearchParams(location.search).get("tab") || new URLSearchParams(location.search).get("nav");
+  if (isFirstRun && !hasDeepLink) {
+    setTimeout(showOnboarding, 600);
+  } else {
+    checkWhatsNew(); // returning user → show changelog if the app was updated
+  }
+} catch(e) { checkWhatsNew(); }
+</script>
+</body>
+</html>
+ch(e) { checkWhatsNew(); }
 </script>
 </body>
 </html>
