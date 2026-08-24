@@ -22,5 +22,29 @@ services:
         sync: false
       - key: VAPID_SUBJECT
         sync: false
+      # ── Premium / payments (see PUBLISH.md) ──
+      - key: PREMIUM_EARLY_MINUTES
+        value: 8        # how long free users wait for new deals
+      - key: PREMIUM_SECRET
+        sync: false     # long random string — signs member tokens, never change it
+      - key: STRIPE_SECRET_KEY
+        sync: false     # sk_live_... from Stripe dashboard
+      - key: STRIPE_PAYMENT_URL
+        sync: false     # your Stripe Payment Link URL
+      - key: PREMIUM_PRICE_LABEL
+        sync: false     # e.g. "$2.99/month"
+      - key: STRIPE_MANAGE_URL
+        sync: false     # optional: Stripe customer portal link
+      # ── Extras: affiliate, tips, weekly email digest ──
+      - key: AMAZON_TAG
+        sync: false     # your Amazon Associates tag, e.g. "dealspot-20"
+      - key: EBAY_CAMPID
+        sync: false     # optional eBay Partner Network campid
+      - key: TIP_URL
+        sync: false     # e.g. https://ko-fi.com/yourpage — shows a tip-jar button
+      - key: RESEND_API_KEY
+        sync: false     # free at resend.com — turns on weekly digest emails
+      - key: DIGEST_FROM
+        sync: false     # optional custom From: for digest emails
     healthCheckPath: /healthz
     autoDeploy: true

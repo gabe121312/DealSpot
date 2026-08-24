@@ -244,6 +244,36 @@
   .kw-input input { flex:1; padding:10px 13px; border:1.5px solid var(--border); border-radius:10px; background:var(--card2); color:var(--text); font-size:14px; font-family:inherit; outline:none; }
   .kw-input button { padding:0 16px; border:none; border-radius:10px; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; font-weight:700; cursor:pointer; font-family:inherit; }
 
+  /* ── Premium ⚡ ── */
+  .premium-teaser { display:flex; align-items:center; gap:12px; padding:13px 14px; margin-bottom:14px; border-radius:16px; cursor:pointer;
+    background:linear-gradient(135deg,rgba(255,193,7,.14),rgba(255,87,34,.10)); border:1.5px solid rgba(255,180,0,.45); animation:slideUp .35s cubic-bezier(.16,1,.3,1); }
+  .pt-icon { width:42px; height:42px; border-radius:12px; background:linear-gradient(135deg,#ffc400,#ff6a00); color:#fff; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+  .pt-body { flex:1; min-width:0; }
+  .pt-title { font-size:13.5px; font-weight:800; line-height:1.3; }
+  .pt-sub { font-size:12px; color:var(--text2); margin-top:3px; }
+  .pt-sub strong { color:#e08900; }
+  [data-theme="dark"] .pt-sub strong { color:#ffc400; }
+  .pt-btn { padding:8px 13px; border-radius:20px; background:linear-gradient(135deg,#ffc400,#ff6a00); color:#fff; font-size:12.5px; font-weight:800; white-space:nowrap; flex-shrink:0; }
+  .prem-active { background:linear-gradient(135deg,rgba(255,193,7,.16),rgba(255,150,50,.10)); border:1.5px solid rgba(255,180,0,.5); border-radius:16px; padding:14px; }
+  .prem-feat { display:flex; gap:9px; align-items:flex-start; font-size:13px; font-weight:600; margin-top:9px; line-height:1.35; }
+  .prem-feat .fi { flex-shrink:0; }
+  .prem-feat small { display:block; font-weight:500; color:var(--text2); font-size:11.5px; margin-top:1px; }
+  .new-badge { position:absolute; top:8px; right:8px; z-index:2; background:linear-gradient(135deg,#ffc400,#ff6a00); color:#fff; font-size:10px; font-weight:900; letter-spacing:.5px; padding:4px 8px; border-radius:12px; }
+  .crown-chip { display:inline-flex; align-items:center; gap:4px; margin-left:8px; padding:2px 8px; border-radius:10px; background:linear-gradient(135deg,#ffc400,#ff6a00); color:#fff; font-size:10.5px; font-weight:900; vertical-align:middle; }
+
+  /* ── Deal voting 🔥💀 ── */
+  .vote-btn { display:inline-flex; align-items:center; gap:3px; padding:5px 9px; border-radius:14px; border:1.5px solid var(--border); background:var(--card2); color:var(--text2); font-size:11.5px; font-weight:800; cursor:pointer; font-family:inherit; line-height:1; transition:all .15s; }
+  .vote-btn:active { transform:scale(.92); }
+  .vote-btn.on-fire { border-color:#ff6a00; color:#ff6a00; background:rgba(255,106,0,.1); }
+  .vote-btn.on-dead { border-color:#868e96; color:#868e96; background:rgba(0,0,0,.04); }
+  .card.possibly-dead { opacity:.5; }
+  .card.possibly-dead:hover { opacity:.85; }
+  .local-badge.dead-badge { background:#868e96; }
+  .digest-row { display:flex; gap:8px; margin-top:10px; }
+  .digest-row input { flex:1; padding:10px 13px; border:1.5px solid var(--border); border-radius:10px; background:var(--card2); color:var(--text); font-size:14px; font-family:inherit; outline:none; }
+  .vote-row { display:flex; align-items:center; gap:7px; margin-top:9px; padding-top:8px; border-top:1px dashed var(--border); }
+  .vote-q { font-size:11px; color:var(--text2); font-weight:600; margin-right:auto; }
+
   .store-toggles { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
   .store-toggle { display:flex; align-items:center; gap:8px; padding:9px 11px; background:var(--card2); border-radius:10px; font-size:13px; font-weight:600; cursor:pointer; border:1.5px solid transparent; }
   .store-toggle.on { border-color:var(--accent); }
@@ -507,6 +537,14 @@
     </div>
   </div>
 
+  <!-- Premium upgrade modal -->
+  <div class="modal-overlay" id="premiumModal">
+    <div class="modal whatsnew" style="border-radius:22px">
+      <div class="modal-handle"></div>
+      <div id="premiumModalBody"></div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <!-- First-run onboarding -->
@@ -555,6 +593,38 @@ let customDeals = JSON.parse(localStorage.getItem("ds_custom") || "[]");
 let seenIds = JSON.parse(localStorage.getItem("ds_seen") || "[]");
 let notifs = JSON.parse(localStorage.getItem("ds_notifs") || "[]");
 
+// ── Premium ⚡ state ────────────────────────────────────────────
+const FREE_KEYWORD_LIMIT = 2;
+let premium = {
+  active: false,
+  token: localStorage.getItem("ds_premium_token") || "",
+  session: localStorage.getItem("ds_premium_session") || "",
+  mode: "", email: "",
+};
+let premiumCfg = { enabled:false, price:"", paymentUrl:"", manageUrl:"", earlyMinutes:8 };
+let premiumTeaser = null; // {count, unlockAt} — deals free users can't see yet
+let votes = JSON.parse(localStorage.getItem("ds_votes") || "{}"); // dealId -> "fire"|"dead"
+
+function dealIsDead(d) {
+  const v = d.votes;
+  return !!(v && v.dead >= 3 && v.dead > v.fire);
+}
+function castVote(id, kind) {
+  const prev = votes[id] || null;
+  if (prev === kind) delete votes[id];       // tapping again = undo
+  else votes[id] = kind;                     // switch or new vote
+  localStorage.setItem("ds_votes", JSON.stringify(votes));
+  // optimistic update
+  const d = allDeals().find(x => String(x.id) === String(id));
+  if (d && d.votes) {
+    if (prev && prev !== votes[id]) d.votes[prev] = Math.max(0, (d.votes[prev]||0) - 1);
+    if (votes[id]) d.votes[kind] = (d.votes[kind]||0) + 1;
+  }
+  fetch("/api/deals/vote", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({id:String(id), add: votes[id]||null, remove: prev && prev!==votes[id] ? prev : null})}).catch(()=>{});
+  render();
+}
+
 const DEFAULT_SETTINGS = {
   theme: "light",
   defaultTab: "all",
@@ -582,6 +652,123 @@ function saveSettings() {
   _syncTimer = setTimeout(syncPushPrefs, 1500);
 }
 function saveNotifs() { localStorage.setItem("ds_notifs", JSON.stringify(notifs.slice(0, 50))); }
+
+// ── Premium ⚡ ──────────────────────────────────────────────────
+function isPremium() { return !!premium.active; }
+async function fetchPremiumConfig() {
+  try {
+    const r = await fetch("/api/premium/config" + (premium.token ? "?pt=" + encodeURIComponent(premium.token) : ""), {cache:"no-store"});
+    const d = await r.json();
+    premiumCfg = Object.assign({}, premiumCfg, d);
+    premium.active = !!d.premium;
+    if (d.mode) premium.mode = d.mode;
+  } catch(e) {}
+}
+async function verifyPremiumToken() {
+  if (!premium.token) return null;
+  try {
+    const r = await fetch("/api/premium/verify", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({token: premium.token})});
+    const d = await r.json();
+    premium.active = !!d.premium;
+    if (d.mode) premium.mode = d.mode;
+    return d;
+  } catch(e) { return null; }
+}
+async function activatePremium(sessionId, silent) {
+  try {
+    const r = await fetch("/api/premium/activate", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({sessionId})});
+    const d = await r.json();
+    if (d.ok) {
+      premium.active = true; premium.token = d.token; premium.mode = d.mode; premium.email = d.email || "";
+      localStorage.setItem("ds_premium_token", d.token);
+      localStorage.setItem("ds_premium_session", sessionId);
+      if (!silent) {
+        showPremiumModal(true);
+        render(); syncPushPrefs(); loadDeals(false);
+        if (document.getElementById("settingsOverlay").classList.contains("open")) renderSettings();
+      }
+      return true;
+    }
+    if (!silent) showToast(d.error || "Couldn't verify that payment");
+  } catch(e) { if (!silent) showToast("Network error — try again"); }
+  return false;
+}
+async function initPremium() {
+  // 1) Coming back from Stripe payment → session_id is in the URL
+  const p = new URLSearchParams(location.search);
+  const sid = p.get("session_id");
+  if (sid) {
+    try { history.replaceState(null, "", location.pathname); } catch(e) {}
+    await activatePremium(sid, false);
+    return;
+  }
+  // 2) Check config + existing membership
+  await fetchPremiumConfig();
+  if (premium.token && !premium.active) {
+    const v = await verifyPremiumToken();
+    if ((!v || !v.premium) && premium.session) {
+      await activatePremium(premium.session, true); // auto-renew expired monthly token
+    }
+  }
+}
+function premiumModeLabel() {
+  if (premium.mode === "subscription") return "Monthly member";
+  if (premium.mode === "payment") return "Lifetime member";
+  return "Premium member";
+}
+function openPremium() { showPremiumModal(false); }
+function closePremiumModal() { document.getElementById("premiumModal").classList.remove("open"); }
+function showPremiumModal(justUpgraded) {
+  const el = document.getElementById("premiumModalBody");
+  const em = premiumCfg.earlyMinutes || 8;
+  if (premium.active) {
+    el.innerHTML = `
+      <div style="text-align:center;margin-bottom:10px"><div style="font-size:52px">👑</div></div>
+      <h3 style="text-align:center;margin-bottom:6px">You're Premium!</h3>
+      <div style="text-align:center;font-size:13px;color:var(--text2);margin-bottom:16px">${premiumModeLabel()}${premium.email ? " · " + escapeHtml(premium.email) : ""}</div>
+      <div class="prem-active" style="margin-bottom:16px">
+        <div class="prem-feat"><span class="fi">⚡</span><span>You see every new deal <strong>${em} minutes before</strong> everyone else</span></div>
+        <div class="prem-feat"><span class="fi">🔔</span><span>Instant phone alerts — the moment a deal drops</span></div>
+        <div class="prem-feat"><span class="fi">🔑</span><span>Unlimited keywords (free = ${FREE_KEYWORD_LIMIT})</span></div>
+        <div class="prem-feat"><span class="fi">🥇</span><span>"NEW" badges on the freshest deals</span></div>
+      </div>
+      <div style="text-align:center;font-size:12.5px;color:var(--text2);margin-bottom:14px">Thank you for supporting DealSpot ❤️</div>
+      ${premiumCfg.manageUrl ? `<a class="btn btn-ghost btn-block" href="${premiumCfg.manageUrl}" target="_blank" rel="noopener">Manage subscription</a>` : ""}
+      <div class="modal-actions" style="padding:0"><button class="btn btn-save" style="flex:1" onclick="closePremiumModal()">${justUpgraded ? "Let's go!" : "Done"}</button></div>`;
+  } else {
+    el.innerHTML = `
+      <div style="text-align:center;margin-bottom:10px"><div style="font-size:52px">⚡</div></div>
+      <h3 style="text-align:center;margin-bottom:6px">DealSpot Premium</h3>
+      <div style="text-align:center;font-size:13px;color:var(--text2);margin-bottom:16px">Be first in line for every deal</div>
+      <div class="prem-active" style="margin-bottom:16px">
+        <div class="prem-feat"><span class="fi">⚡</span><span>New deals <strong>${em} minutes early</strong><small>Hot deals sell out fast — see them first</small></span></div>
+        <div class="prem-feat"><span class="fi">🔔</span><span>Instant phone alerts<small>Free members wait ${em} minutes</small></span></div>
+        <div class="prem-feat"><span class="fi">🔑</span><span>Unlimited keywords<small>Free = ${FREE_KEYWORD_LIMIT} (PS5, air fryer, TV…)</small></span></div>
+        <div class="prem-feat"><span class="fi">👑</span><span>Supporter badge + freshest-deal badges</span></div>
+      </div>
+      ${premiumCfg.enabled
+        ? `<a class="btn btn-primary btn-block" style="text-align:center;text-decoration:none" href="${premiumCfg.paymentUrl}" target="_blank" rel="noopener">⚡ Go Premium — ${escapeHtml(premiumCfg.price || "$2.99/month")}</a>
+           <div style="text-align:center;font-size:11.5px;color:var(--text2);margin-top:8px">Secure payment via Stripe · cancel any time</div>`
+        : `<div class="btn btn-primary btn-block" style="text-align:center;opacity:.55">Payments coming soon 👷</div>
+           <div style="text-align:center;font-size:11.5px;color:var(--text2);margin-top:8px">Check back shortly!</div>`}
+      <div class="modal-actions" style="padding:0;margin-top:14px"><button class="btn btn-cancel" style="flex:1" onclick="closePremiumModal()">Maybe later</button></div>`;
+  }
+  document.getElementById("premiumModal").classList.add("open");
+}
+let _teaserTimer = null;
+function startTeaserCountdown() {
+  clearInterval(_teaserTimer);
+  if (!document.getElementById("teaserCountdown")) return;
+  const tick = () => {
+    const e2 = document.getElementById("teaserCountdown");
+    if (!e2) { clearInterval(_teaserTimer); return; }
+    const left = Math.max(0, Math.round(((premiumTeaser ? premiumTeaser.unlockAt : 0) - Date.now()) / 1000));
+    e2.textContent = Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
+    if (left <= 0) { clearInterval(_teaserTimer); loadDeals(false); }
+  };
+  tick();
+  _teaserTimer = setInterval(tick, 1000);
+}
 
 // ── Real Web Push ──────────────────────────────────────────────
 const pushSupported = ("serviceWorker" in navigator && "PushManager" in window && "Notification" in window);
@@ -625,7 +812,7 @@ async function sendSubToServer(sub, remove) {
       body: JSON.stringify({subscription: sub, prefs: {
         keywords: settings.notifKeywords, stores: settings.notifStores,
         minDiscount: settings.notifMinDiscount,
-      }}),
+      }, premiumToken: premium.token}),
     });
   } catch(e) {}
 }
@@ -688,12 +875,14 @@ function dealHref(d) { return (d && (d.url || d.threadUrl)) || "#"; }
 async function loadDeals(force) {
   document.getElementById("deal-count").innerHTML = `<span class="live-dot"></span> Loading live deals…`;
   try {
-    const res = await fetch("/api/deals" + (force ? "?refresh=1" : ""), {cache:"no-store"});
+    const res = await fetch("/api/deals" + (force ? "?refresh=1" : "") + (premium.token ? (force ? "&" : "?") + "pt=" + encodeURIComponent(premium.token) : ""), {cache:"no-store"});
     const data = await res.json();
     if (data.deals && data.deals.length) {
       const newOnes = data.deals.filter(d => !seenIds.includes(String(d.id)));
       liveDeals = data.deals;
       isLive = true; lastUpdated = data.updated || Date.now();
+      premium.active = !!data.premium;
+      premiumTeaser = data.premiumTeaser || null;
       // Mark seen & run alerts only on subsequent loads (never on first).
       if (!firstLoad) checkForAlerts(newOnes);
       seenIds = data.deals.map(d => String(d.id));
@@ -763,6 +952,9 @@ function getFiltered() {
     if (sortDesc) return pb-pa || (b.sale?1:0)-(a.sale?1:0);
     return pa-pb;
   });
+  // Sink possibly-dead deals to the bottom so the feed stays fresh
+  const dead = list.filter(dealIsDead);
+  if (dead.length) list = list.filter(d => !dealIsDead(d)).concat(dead);
   return list;
 }
 
@@ -790,22 +982,34 @@ function render() {
     ? `<span style="display:inline-flex;align-items:center;gap:3px;margin-left:7px;color:var(--accent);font-weight:700">📍 ${escapeHtml(settings.city?settings.city+", "+settings.state:settings.zip)}</span>`
     : "";
   document.getElementById("deal-count").innerHTML = isLive
-    ? `<span class="live-dot"></span> ${total} live deals · ${ago}${loc}`
-    : `${total} sample deals${loc}`;
+    ? `<span class="live-dot"></span> ${total} live deals · ${ago}${loc}${premium.active ? '<span class="crown-chip">⚡ PREMIUM</span>' : ""}`
+    : `${total} sample deals${loc}${premium.active ? '<span class="crown-chip">⚡ PREMIUM</span>' : ""}`;
 
+  const titles = {all:"🔥 All Live Deals",local:"📍 Near You",amazon:"Amazon Deals",walmart:"Walmart Deals",samsclub:"Sam's Club Deals",bestbuy:"Best Buy Deals",target:"Target Deals",other:"Other Stores",watchlist:"❤️ Your Watchlist"};
+  const teaserHtml = (!premium.active && premiumTeaser && premiumTeaser.count > 0 && currentStore === "all")
+    ? `<div class="premium-teaser" onclick="openPremium()">
+         <div class="pt-icon">⚡</div>
+         <div class="pt-body">
+           <div class="pt-title">${premiumTeaser.count} new deal${premiumTeaser.count>1?"s":""} Premium members are seeing right now</div>
+           <div class="pt-sub">Unlocks for you in <strong id="teaserCountdown">--:--</strong> — or upgrade to see now</div>
+         </div>
+         <div class="pt-btn">⚡ Upgrade</div>
+       </div>` : "";
   if (list.length === 0) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">${currentStore==="watchlist"?"💔":"🔍"}</div><h3>${currentStore==="watchlist"?"Your watchlist is empty":"No deals found"}</h3><p>${currentStore==="watchlist"?"Tap the heart on any deal to save it here.":"Try adjusting your filters or search terms."}</p></div>`;
+    el.innerHTML = teaserHtml + `<div class="empty"><div class="empty-icon">${currentStore==="watchlist"?"💔":"🔍"}</div><h3>${currentStore==="watchlist"?"Your watchlist is empty":"No deals found"}</h3><p>${currentStore==="watchlist"?"Tap the heart on any deal to save it here.":"Try adjusting your filters or search terms."}</p></div>`;
+    startTeaserCountdown();
     return;
   }
-  const titles = {all:"🔥 All Live Deals",local:"📍 Near You",amazon:"Amazon Deals",walmart:"Walmart Deals",samsclub:"Sam's Club Deals",bestbuy:"Best Buy Deals",target:"Target Deals",other:"Other Stores",watchlist:"❤️ Your Watchlist"};
   el.innerHTML = `<div class="section-title"><h2>${titles[currentStore]||"Deals"}</h2><span>${list.length} item${list.length!==1?"s":""}</span></div>` +
+    teaserHtml +
     list.map((d,i) => {
       const p = pct(d), inList = watchlist.includes(String(d.id));
+      const fresh = premium.active && d.firstSeen && (Date.now() - d.firstSeen < 10*60*1000);
       const label = d.storeLabel || STORE_LABELS[d.store] || "Store";
       const price = d.sale ? `$${d.sale.toFixed(2)}` : "View deal";
       const orig = d.orig ? `<span class="price-orig">$${d.orig.toFixed(2)}</span>` : "";
       const save = (d.sale && d.orig && d.orig>d.sale) ? `<div class="price-save">Save $${(d.orig-d.sale).toFixed(2)}</div>` : "";
-      const badgeHtml = p > 0 ? `<span class="discount-badge">-${p}%</span>` : "";
+      const badgeHtml = (p > 0 ? `<span class="discount-badge">-${p}%</span>` : "") + (fresh ? `<span class="new-badge">NEW</span>` : "");
       let localBadge = "";
       if (d.ymmv) localBadge = `<span class="local-badge ymmv">YMMV</span>`;
       else if (d.inStore || isInStoreDeal(d)) localBadge = `<span class="local-badge in-store">IN-STORE</span>`;
@@ -813,8 +1017,14 @@ function render() {
       const imgHtml = d.img
         ? `<img src="${d.img}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none';this.parentNode.querySelector('.img-fallback').style.display='flex'"><div class="img-fallback" style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:48px;background:var(--card2);">${d.emoji||"🛍️"}</div>`
         : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:48px;background:var(--card2);">${d.emoji||"🛍️"}</div>`;
-      return `<a class="card card-link" data-id="${d.id}" href="${dealHref(d)}" target="_blank" rel="noopener noreferrer" style="animation-delay:${Math.min(i*0.03,0.6)}s">
-        <div class="card-img">${badgeHtml}${localBadge}${imgHtml}</div>
+      const dead = dealIsDead(d);
+      const v = d.votes || {fire:0, dead:0};
+      const myV = votes[String(d.id)] || null;
+      const localBadgeHtml = dead
+        ? `<span class="local-badge dead-badge">LIKELY DEAD 💀</span>`
+        : localBadge;
+      return `<a class="card card-link${dead?" possibly-dead":""}" data-id="${d.id}" href="${dealHref(d)}" target="_blank" rel="noopener noreferrer" style="animation-delay:${Math.min(i*0.03,0.6)}s">
+        <div class="card-img">${badgeHtml}${localBadgeHtml}${imgHtml}</div>
         <div class="card-body">
           <span class="card-store store-${d.store}">${label}</span>
           <div class="card-name">${esc}</div>
@@ -832,9 +1042,15 @@ function render() {
               </button>
             </div>
           </div>
+          <div class="vote-row">
+            <span class="vote-q">Deal still good?</span>
+            <button class="vote-btn ${myV==='fire'?'on-fire':''}" onclick="event.preventDefault();event.stopPropagation();castVote('${d.id}','fire')" aria-label="Deal still works">🔥 ${v.fire||0}</button>
+            <button class="vote-btn ${myV==='dead'?'on-dead':''}" onclick="event.preventDefault();event.stopPropagation();castVote('${d.id}','dead')" aria-label="Deal is dead">💀 ${v.dead||0}</button>
+          </div>
         </div>
       </a>`;
     }).join("");
+  startTeaserCountdown();
 }
 function timeAgo(ts) {
   const s = Math.floor((Date.now()-ts)/1000);
@@ -844,7 +1060,7 @@ function findDeal(id) { return allDeals().find(d => String(d.id) === String(id))
 
 // Open deal links (delegated fallback for embedded views)
 document.getElementById("content").addEventListener("click", e => {
-  if (e.target.closest(".heart")) return;
+  if (e.target.closest(".heart") || e.target.closest(".vote-btn")) return;
   const link = e.target.closest(".card-link");
   if (!link) return;
   const href = link.getAttribute("href");
@@ -953,7 +1169,42 @@ function renderSettings() {
     </div>`;
   }).join("");
 
+  const premSection = premium.active ? `
+    <div class="group-title">⚡ Premium</div>
+    <div class="group">
+      <div class="prem-active" style="margin:13px 16px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+          <span style="font-size:26px">👑</span>
+          <div>
+            <div class="row-label">${premiumModeLabel()}</div>
+            <div class="row-sub">${premium.email ? escapeHtml(premium.email) + " · " : ""}Instant alerts · ${premiumCfg.earlyMinutes||8}-min early access · unlimited keywords</div>
+          </div>
+        </div>
+        ${premiumCfg.manageUrl ? `<a class="btn btn-ghost btn-block" style="margin-top:10px;text-decoration:none;text-align:center" href="${premiumCfg.manageUrl}" target="_blank" rel="noopener">Manage subscription</a>` : ""}
+        <button class="btn btn-ghost btn-block" style="margin-top:${premiumCfg.manageUrl?0:10}px" onclick="openPremium()">View my benefits</button>
+      </div>
+    </div>` : `
+    <div class="group-title">⚡ Premium</div>
+    <div class="group">
+      <div style="padding:13px 16px">
+        <div class="row-label" style="margin-bottom:4px">Be first in line for every deal 👑</div>
+        <div class="row-sub" style="margin-bottom:10px">Members see new deals <strong>${premiumCfg.earlyMinutes||8} minutes before</strong> everyone else, get instant phone alerts, and unlimited keywords.</div>
+        ${premiumCfg.enabled
+          ? `<a class="btn btn-primary btn-block" style="text-decoration:none;text-align:center" href="${premiumCfg.paymentUrl}" target="_blank" rel="noopener">⚡ Go Premium — ${escapeHtml(premiumCfg.price || "$2.99/month")}</a>`
+          : `<button class="btn btn-primary btn-block" style="opacity:.55" onclick="showToast('Payments coming soon 👷')">⚡ Premium — coming soon</button>`}
+        <button class="btn btn-ghost btn-block" onclick="openPremium()">See what's included</button>
+        <details style="margin-top:4px">
+          <summary style="font-size:12.5px;color:var(--text2);cursor:pointer;padding:6px 0">Restore a purchase</summary>
+          <div class="kw-input" style="margin-top:8px">
+            <input id="restoreInput" placeholder="Paste payment confirmation code" onkeydown="if(event.key==='Enter')doRestore()">
+            <button onclick="doRestore()">Restore</button>
+          </div>
+          <div class="row-sub" style="margin-top:6px">Found in your receipt email from Stripe (the long "cs_…" code).</div>
+        </details>
+      </div>
+    </div>`;
   document.getElementById("settingsBody").innerHTML = `
+    ${premSection}
     <div class="group-title">Appearance</div>
     <div class="group">
       <div class="row"><div class="row-left"><div class="row-label">Theme</div></div>
@@ -1037,8 +1288,8 @@ function renderSettings() {
         <label class="switch"><input type="checkbox" id="pushToggle" ${s.pushEnabled?"checked":""} onchange="togglePush()" ${pushSupported?"":"disabled"}><span class="slider"></span></label>
       </div>
       <div class="row" style="flex-direction:column;align-items:stretch">
-        <div class="row-label" style="margin-bottom:4px">Alert me about keywords</div>
-        <div class="row-sub" style="margin-bottom:8px">e.g. PS5, air fryer, Sony headphones — leave empty for all deals in your stores</div>
+        <div class="row-label" style="margin-bottom:4px">Alert me about keywords ${premium.active ? '<span style="color:#e08900;font-size:11.5px">· unlimited ⚡</span>' : `<span style="color:var(--text2);font-size:11.5px">· ${s.notifKeywords.length}/${FREE_KEYWORD_LIMIT} free</span>`}</div>
+        <div class="row-sub" style="margin-bottom:8px">e.g. PS5, air fryer, Sony headphones — leave empty for all deals in your stores${premium.active ? "" : ". Premium = unlimited keywords."}</div>
         <div class="kw-list" id="kwList">${s.notifKeywords.map(k=>`<span class="kw">${escapeHtml(k)}<button onclick="removeKw('${escapeHtml(k)}')">×</button></span>`).join("")}</div>
         <div class="kw-input"><input id="kwInput" placeholder="Add a keyword..." onkeydown="if(event.key==='Enter')addKw()"><button onclick="addKw()">Add</button></div>
       </div>
@@ -1059,6 +1310,23 @@ function renderSettings() {
       </div>
     </div>
 
+    <div class="group-title">📧 Weekly Deal Digest</div>
+    <div class="group">
+      <div class="row" style="flex-direction:column;align-items:stretch">
+        <div class="row-label" style="margin-bottom:4px">Top 10 deals in your inbox</div>
+        <div class="row-sub" style="margin-bottom:4px">One email a week with the biggest live discounts. Free, no spam, unsubscribe any time.${premiumCfg.digest && premiumCfg.digest.sending ? "" : " (Starts sending as soon as email delivery is switched on — subscribe anytime.)"}</div>
+        ${localStorage.getItem("ds_digest_email")
+          ? `<div class="row-sub" style="margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+               <span style="color:var(--green)">●</span> Subscribed as <strong style="color:var(--text)">${escapeHtml(localStorage.getItem("ds_digest_email"))}</strong>
+               <button onclick="unsubscribeDigest()" style="margin-left:auto;background:none;border:none;color:var(--red);font-size:12px;font-weight:700;cursor:pointer">Unsubscribe</button>
+             </div>`
+          : `<div class="digest-row">
+               <input type="email" id="digestEmail" placeholder="you@email.com" inputmode="email" onkeydown="if(event.key==='Enter')subscribeDigest()">
+               <button class="btn btn-primary" style="padding:0 16px;flex:none" onclick="subscribeDigest()">Subscribe</button>
+             </div>`}
+      </div>
+    </div>
+
     <div class="group-title">Data</div>
     <div class="group" style="padding:13px 16px">
       <button class="btn btn-ghost btn-block" onclick="exportData()">📤 Export my data</button>
@@ -1076,11 +1344,13 @@ function renderSettings() {
         <strong>DealSpot</strong> is a Progressive Web App — install it to your home screen for a full-screen, app-like experience, no app store needed.
       </div>
       <div class="row-sub" style="line-height:1.6; margin-bottom:12px">
-        <strong>DealSpot</strong> v2.0 — live discount tracker.<br>
+        <strong>DealSpot</strong> v3.0 — live discount tracker${premium.active ? " · <span style=\"color:#e08900;font-weight:800\">⚡ Premium member</span>" : ""}.<br>
         Live deals aggregated from Slickdeals public RSS feeds, auto-refreshed every ${s.refreshInterval} minute${s.refreshInterval>1?"s":""}.<br>
         Your custom deals, alerts and preferences are stored only on this device.
       </div>
       <button class="btn btn-ghost btn-block" onclick="showWhatsNew()">✨ What's new (v${APP_VERSION})</button>
+      <button class="btn btn-ghost btn-block" onclick="shareApp()">📣 Share DealSpot with a friend</button>
+      ${premiumCfg.tipUrl ? `<a class="btn btn-ghost btn-block" style="text-decoration:none;text-align:center" href="${premiumCfg.tipUrl}" target="_blank" rel="noopener">☕ Tip jar — support DealSpot</a>` : ""}
       <button class="btn btn-ghost btn-block" onclick="showOnboarding()">👋 Replay welcome tour</button>
       <button class="btn btn-ghost btn-block" onclick="openLegal()">📄 Privacy Policy & Disclosures</button>
     </div>
@@ -1116,6 +1386,12 @@ function renderLegal() {
 
     <h3>Affiliate & commission disclosure</h3>
     <p>DealSpot itself does not currently use affiliate links and earns no commission from purchases. If affiliate links are added in the future, this policy will be updated and purchases may earn us a commission at no extra cost to you. Product names, logos, and prices are property of their respective retailers.</p>
+
+    <h3>Payments & Premium</h3>
+    <p>If you choose to upgrade to DealSpot Premium, your payment is processed entirely by <a href="https://stripe.com" target="_blank" rel="noopener">Stripe</a>, a licensed payment processor — we never see or store your card details. We keep only a signed receipt token on your device (and an anonymous premium flag with your push subscription, so we can send you instant alerts). Your free deal feed keeps working exactly the same — Premium simply removes the short new-deal delay. You can cancel a subscription any time from Settings → Premium, and refunds are handled through Stripe.</p>
+
+    <h3>Emails, votes & tips</h3>
+    <p>If you subscribe to the <strong>weekly digest</strong>, your email address is stored only to send that one weekly email — nothing else — and you can remove it any time with the Unsubscribe button in Settings. <strong>Deal votes</strong> (🔥/💀) are completely anonymous: we store only a counter per deal, with no account or name attached. Links from this app to retailers may include referral/affiliate tags; if you purchase after following one, DealSpot may earn a small commission at no extra cost to you.</p>
 
     <h3>Accuracy & availability</h3>
     <p>Deals are provided "as is" by third parties. Prices and availability change constantly and may differ from what is shown; always verify the final price on the retailer's page before purchasing.</p>
@@ -1188,9 +1464,63 @@ function toggleNotifEnabled(){
   if (settings.notifEnabled) showToast("Deal alerts on 🔔");
 }
 function addKw(){
-  const inp = document.getElementById("kwInput"); const v = inp.value.trim();
-  if (v && !settings.notifKeywords.includes(v.toLowerCase())) { settings.notifKeywords.push(v.toLowerCase()); saveSettings(); renderSettings(); }
+  const inp = document.getElementById("kwInput"); const v = inp.value.trim().toLowerCase();
+  if (!v) { inp.value=""; return; }
+  if (!premium.active && settings.notifKeywords.length >= FREE_KEYWORD_LIMIT) {
+    showToast(`Free plan: ${FREE_KEYWORD_LIMIT} keywords max — ⚡ Premium gets unlimited`);
+    inp.value="";
+    openPremium();
+    return;
+  }
+  if (!settings.notifKeywords.includes(v)) { settings.notifKeywords.push(v); saveSettings(); renderSettings(); }
   inp.value="";
+}
+function doRestore(){
+  const inp = document.getElementById("restoreInput");
+  const v = (inp && inp.value || "").trim();
+  if (!v) { showToast("Paste the code from your Stripe receipt first"); return; }
+  activatePremium(v, false);
+}
+// ── Share the app ───────────────────────────────────────────────
+function shareApp() {
+  const url = location.origin.startsWith("http") ? location.origin : "https://dealspot-cn44.onrender.com";
+  const data = {
+    title: "DealSpot",
+    text: "🔥 I track live deals from Amazon, Walmart, Best Buy, Sam's Club & Target with DealSpot — free app, no app store needed:",
+    url: url,
+  };
+  if (navigator.share) {
+    navigator.share(data).then(() => showToast("Thanks for sharing! 💜")).catch(() => {});
+  } else {
+    const done = () => showToast("Link copied — paste it to a friend! 📋");
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done).catch(() => showToast(url));
+    else showToast(url);
+  }
+}
+// ── Weekly email digest ────────────────────────────────────────
+async function subscribeDigest() {
+  const inp = document.getElementById("digestEmail");
+  const email = (inp && inp.value || "").trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) { showToast("Enter a valid email address"); return; }
+  try {
+    const r = await fetch("/api/digest/subscribe", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({email})});
+    const d = await r.json();
+    if (d.ok) {
+      localStorage.setItem("ds_digest_email", email);
+      showToast("You're in! Top 10 deals weekly 📬");
+      renderSettings();
+    } else showToast(d.error || "Couldn't subscribe — try again");
+  } catch(e) { showToast("Network error — try again"); }
+}
+async function unsubscribeDigest() {
+  const email = localStorage.getItem("ds_digest_email") || "";
+  localStorage.removeItem("ds_digest_email");
+  renderSettings();
+  showToast("Unsubscribed 👋");
+  if (!email) return;
+  try {
+    await fetch("/api/digest/unsubscribe", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({email})});
+  } catch(e) {}
 }
 function removeKw(k){ settings.notifKeywords = settings.notifKeywords.filter(x=>x!==k); saveSettings(); renderSettings(); }
 function toggleNotifStore(k){
@@ -1386,8 +1716,13 @@ if ("serviceWorker" in navigator) {
 }
 
 // ── "What's new" on update ─────────────────────────────────────
-const APP_VERSION = "2.1.0";
+const APP_VERSION = "3.1.0";
 const CHANGELOG = [
+  { ic:"🔥", t:"Community voting", d:"Every deal now has 🔥 (still works) and 💀 (dead) buttons. Deals voted dead sink to the bottom automatically — no more wasted taps." },
+  { ic:"📧", t:"Weekly deal digest", d:"Get the Top 10 deals of the week in your inbox. Subscribe in Settings — one email a week, no spam." },
+  { ic:"📣", t:"Share DealSpot", d:"New share button in Settings → About sends the app link to friends in one tap." },
+  { ic:"⚡", t:"DealSpot Premium", d:"Members see every new deal 8 minutes early, get instant phone alerts, and unlimited keywords. The free app keeps everything else — deals just arrive 8 minutes later." },
+  { ic:"👑", t:"NEW badges + supporter crown", d:"Premium members spot the freshest deals with NEW badges and a crown next to their name." },
   { ic:"📍", t:"Local in-store deals", d:"Set your ZIP to surface clearance, BOPUS and YMMV finds near you — plus a dedicated Near You tab." },
   { ic:"🔔", t:"Smarter alerts", d:"Keyword, store and minimum-discount notifications now run in the background while the app is open." },
   { ic:"🏪", t:"Sam's Club separated", d:"Sam's Club is now its own store tab, fully separate from Walmart." },
@@ -1502,7 +1837,7 @@ document.querySelectorAll(".store-tab").forEach(b => b.classList.toggle("active"
 updateNavActive();
 updateLocalTab();
 setupRefreshTimer();
-loadDeals(false);
+initPremium().then(() => loadDeals(false));
 reRegisterPushOnLoad();
 
 // Show welcome screen for first-time visitors (but not when launched via a
