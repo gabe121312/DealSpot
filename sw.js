@@ -1,5 +1,9 @@
 /* DealSpot service worker — app-shell caching + push notifications */
-const CACHE = "dealspot-v3";
+const CACHE = "dealspot-v4";
+const NT_ICON = "data:image/svg+xml," + encodeURIComponent(
+  "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>" +
+  "<rect width='100' height='100' rx='22' fill='#6c5ce7'/>" +
+  "<text y='.9em' font-size='82'>🏷️</text></svg>");
 const SHELL = ["./", "./index.html", "./manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
@@ -59,8 +63,8 @@ self.addEventListener("push", (e) => {
     body: data.body || "",
     tag: data.tag || "dealspot",
     renotify: true,
-    icon: data.icon || "./icons/icon-192.png",
-    badge: data.badge || "./icons/icon-192.png",
+    icon: data.icon || NT_ICON,
+    badge: data.badge || NT_ICON,
     data: { url: data.url || "./" },
     vibrate: [120, 60, 120],
   };

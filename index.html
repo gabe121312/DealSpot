@@ -80,7 +80,6 @@
   [data-theme="dark"] .card-name,
   [data-theme="dark"] .price-sale,
   [data-theme="dark"] .logo-text h1,
-  [data-theme="dark"] .statusbar,
   [data-theme="dark"] .store-toggle,
   [data-theme="dark"] .kw,
   [data-theme="dark"] .kw-input input { color: var(--text); }
@@ -94,10 +93,6 @@
   /* Prevent iOS auto-zoom on input focus (needs >=16px font) */
   input, select, textarea { font-size:16px; }
   @media (min-width:480px){ .phone{ border-radius:40px; height:880px; border:10px solid #1a1a2e; } }
-
-  .statusbar { display:flex; justify-content:space-between; align-items:center; padding:10px 24px 4px; font-size:13px; font-weight:600; flex-shrink:0; }
-  .statusbar .icons { display:flex; gap:6px; align-items:center; }
-  .statusbar svg { width:16px; height:16px; }
 
   .header { padding:8px 20px 14px; flex-shrink:0; background:var(--bg); }
   .header-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
@@ -373,16 +368,6 @@
 </head>
 <body>
 <div class="phone" id="phone" data-theme="light">
-
-  <!-- Status bar -->
-  <div class="statusbar">
-    <span id="clock">9:41</span>
-    <div class="icons">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 22h20V2L2 22z" opacity=".3"/><path d="M2 22h20V2z"/></svg>
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3a4.237 4.237 0 00-6 0zm-4-4l2 2a7.074 7.074 0 0110 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 6H7c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm3 3v6h2V9h-2z"/></svg>
-    </div>
-  </div>
 
   <!-- Header -->
   <div class="header">
@@ -1640,8 +1625,6 @@ async function shareDeal(id) {
 // ── Misc ───────────────────────────────────────────────────────
 let toastTimer;
 function showToast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),2400); }
-function updateClock(){ document.getElementById("clock").textContent = new Date().toLocaleTimeString([],{hour:"numeric",minute:"2-digit"}).replace(/\s/,""); }
-updateClock(); setInterval(updateClock,30000);
 setInterval(render, 30000); // refresh "x ago" labels
 
 function setupRefreshTimer(){
