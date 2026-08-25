@@ -736,22 +736,29 @@ async function verifyPremiumToken() {
   } catch(e) { return null; }
 }
 async function activatePremium(sessionId, silent) {
-  try {
-    const r = await fetch("/api/premium/activate", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({sessionId})});
-    const d = await r.json();
-    if (d.ok) {
-      premium.active = true; premium.token = d.token; premium.mode = d.mode; premium.email = d.email || "";
-      localStorage.setItem("ds_premium_token", d.token);
-      localStorage.setItem("ds_premium_session", sessionId);
-      if (!silent) {
-        showPremiumModal(true);
-        render(); syncPushPrefs(); loadDeals(false);
-        if (document.getElementById("settingsOverlay").classList.contains("open")) renderSettings();
-      }
-      return true;
+  // Remember this payment so we can retry even if the server was asleep
+  try { localStorage.setItem("ds_pending_txn", sessionId); } catch(e) {}
+  let d = null;
+  for (let attempt = 0; attempt < 3 && !d; attempt++) {
+    if (attempt) await new Promise(r => setTimeout(r, 6000)); // wait out server wake-ups
+    try {
+      const r = await fetch("/api/premium/activate", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({sessionId})});
+      d = await r.json();
+    } catch(e) { d = null; } // network failed (sleeping server) — retry
+  }
+  if (d && d.ok) {
+    try { localStorage.removeItem("ds_pending_txn"); } catch(e) {}
+    premium.active = true; premium.token = d.token; premium.mode = d.mode; premium.email = d.email || "";
+    localStorage.setItem("ds_premium_token", d.token);
+    localStorage.setItem("ds_premium_session", sessionId);
+    if (!silent) {
+      showPremiumModal(true);
+      render(); syncPushPrefs(); loadDeals(false);
+      if (document.getElementById("settingsOverlay").classList.contains("open")) renderSettings();
     }
-    if (!silent) showToast(d.error || "Couldn't verify that payment");
-  } catch(e) { if (!silent) showToast("Network error — try again"); }
+    return true;
+  }
+  if (!silent) showToast((d && d.error) || "Couldn't reach the server — the app will auto-retry shortly");
   return false;
 }
 async function initPremium() {
@@ -771,6 +778,10 @@ async function initPremium() {
       await activatePremium(premium.session, true); // auto-renew expired monthly token
     }
   }
+  if (premium.active) { try { localStorage.removeItem("ds_pending_txn"); } catch(e) {} return; }
+  // Recover a payment that couldn't be verified earlier (server was asleep, etc.)
+  const pending = localStorage.getItem("ds_pending_txn");
+  if (pending) await activatePremium(pending, true);
 }
 function premiumModeLabel() {
   if (premium.mode === "subscription") return "Monthly member";
