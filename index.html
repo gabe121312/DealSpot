@@ -1698,6 +1698,44 @@ async function shareDeal(id) {
   }
 }
 
+// ── Swipe between tabs (Deals ↔ Watchlist ↔ Alerts ↔ Settings) ─
+function swipeTabIndex(){
+  if (document.getElementById("settingsOverlay").classList.contains("open")) return 3;
+  if (document.getElementById("alertsOverlay").classList.contains("open")) return 2;
+  return currentStore === "watchlist" ? 1 : 0;
+}
+function swipeToIndex(i){
+  if (i === 3) { closeAlerts(); openSettings(); return; }
+  if (i === 2) { closeSettings(); openAlerts(); return; }
+  closeAlerts(); closeSettings();
+  switchNav(i === 1 ? "watchlist" : "deals");
+}
+(function initSwipe(){
+  const phone = document.getElementById("phone");
+  if (!phone) return;
+  let sx = 0, sy = 0, st = 0, tracking = false;
+  phone.addEventListener("touchstart", e => {
+    if (e.touches.length !== 1) { tracking = false; return; }
+    const t = e.touches[0];
+    sx = t.clientX; sy = t.clientY; st = Date.now(); tracking = true;
+  }, {passive:true});
+  phone.addEventListener("touchend", e => {
+    if (!tracking) return;
+    tracking = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - sx, dy = t.clientY - sy, dt = Date.now() - st;
+    // A clearly horizontal, long-enough, quick swipe — nothing accidental
+    if (dt > 700 || Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.6) return;
+    // Don't hijack typing, the horizontally-scrollable tabs, chips or modals
+    if (e.target.closest("input, textarea, select, .store-tabs, .filter-chips, .kw-list, .seg, .modal-overlay")) return;
+    if (document.getElementById("onboarding").classList.contains("open")) return;
+    if (document.getElementById("legalOverlay").classList.contains("open")) return;
+    const idx = swipeTabIndex();
+    if (dx < 0 && idx < 3) swipeToIndex(idx + 1);      // swipe left → next tab
+    else if (dx > 0 && idx > 0) swipeToIndex(idx - 1); // swipe right → previous tab
+  }, {passive:true});
+})();
+
 // ── Pull to refresh ────────────────────────────────────────────
 (function initPTR(){
   const content = document.getElementById("content");
@@ -1802,8 +1840,9 @@ if ("serviceWorker" in navigator) {
 }
 
 // ── "What's new" on update ─────────────────────────────────────
-const APP_VERSION = "3.4.2";
+const APP_VERSION = "3.4.3";
 const CHANGELOG = [
+  { ic:"👈", t:"Swipe between tabs", d:"Glide left or right to move between Deals, Watchlist, Alerts and Settings — like flipping pages. At the ends it stops: Deals only swipes one way, Settings the other." },
   { ic:"🌍", t:"DealSpot speaks 24 languages", d:"Pick your language in Settings → Appearance → Language: Español, Français, Deutsch, 中文, العربية, हिन्दी, 한국어, Português, Русский, Türkçe and more. Deal titles translate automatically too, and the layout stays identical in every language." },
   { ic:"🔔", t:"Alerts, fixed & more reliable", d:"A missing In-app alerts switch is back in Settings → Notifications, and alerts now use the same system as lock-screen push — so they actually appear on Android and installed apps." },
   { ic:"🔥", t:"Community voting", d:"Every deal now has 🔥 (still works) and 💀 (dead) buttons. Deals voted dead sink to the bottom automatically — no more wasted taps." },
