@@ -119,6 +119,44 @@ No code change needed — the second button appears on its own once set.
 `PREMIUM_EARLY_MINUTES` controls how long free users wait (default 8).
 Set it to `15` or `5` — the app updates the wording automatically.
 
+## 4b. Paddle payments (the no-tax-headache alternative) 💳
+
+DealSpot supports **Paddle** as a drop-in replacement for Stripe. Paddle is a
+*merchant of record* — they're the legal seller, so they handle sales tax,
+invoices, and identity paperwork. Great if Stripe's identity verification is
+being difficult (ITIN holders, we see you).
+
+**Setup (test first in sandbox):**
+1. Create a free account at https://www.paddle.com (start with a **sandbox**
+   account for testing — no review needed).
+2. **Catalog → Products → New product**: `DealSpot Premium`, add two prices:
+   `$2.99 USD / month recurring` and `$19.99 USD / year recurring`.
+   Copy both **price IDs** (they look like `pri_01h…`).
+3. **Developer tools → Authentication**: generate an **API key** (secret 🔒)
+   and a **client-side token** (public — safe in the app).
+4. Add these in Render → Environment:
+
+| Key | Value |
+|-----|-------|
+| `PADDLE_API_KEY` | secret API key 🔒 |
+| `PADDLE_CLIENT_TOKEN` | public client-side token |
+| `PADDLE_PRICE_MONTHLY` | `pri_…` of the monthly price |
+| `PADDLE_PRICE_YEARLY` | `pri_…` of the annual price |
+| `PADDLE_ENV` | `sandbox` for testing, `live` for real money |
+
+5. Deploy. The ⚡ Premium buttons now open DealSpot's own checkout page
+   (`/checkout`) with Paddle's secure overlay. Monthly + annual work the same
+   as with Stripe. Test card in sandbox: `4242 4242 4242 4242`.
+
+**Notes:**
+- If both Stripe and Paddle env vars are set, Stripe wins. To use Paddle,
+  remove/empty the Stripe keys (`STRIPE_SECRET_KEY`, `STRIPE_PAYMENT_URL`).
+- Going live: Paddle reviews live accounts (they check your website — a few
+  days). Switch `PADDLE_ENV` to `live` and use live keys once approved.
+- Paddle handles sales tax everywhere — no tax checklist, no filings. Their
+  fee is ~5% + 50¢ per transaction (a bit more than Stripe, that's the
+  trade-off for zero paperwork).
+
 ## 5. Extras (all optional, all free) — set any time in Render → Environment
 
 | Key | What it does |

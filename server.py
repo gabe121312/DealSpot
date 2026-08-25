@@ -132,6 +132,14 @@ STRIPE_PAYMENT_URL_YEARLY = os.environ.get("STRIPE_PAYMENT_URL_YEARLY", "")
 STRIPE_MANAGE_URL = os.environ.get("STRIPE_MANAGE_URL", "")
 PREMIUM_PRICE_LABEL = os.environ.get("PREMIUM_PRICE_LABEL", "$2.99/month")
 PREMIUM_PRICE_LABEL_YEARLY = os.environ.get("PREMIUM_PRICE_LABEL_YEARLY", "")
+
+# ── Paddle payments (merchant of record — handles taxes for you) ───────
+PADDLE_API_KEY = os.environ.get("PADDLE_API_KEY", "")           # secret
+PADDLE_CLIENT_TOKEN = os.environ.get("PADDLE_CLIENT_TOKEN", "") # public, for Paddle.js
+PADDLE_PRICE_MONTHLY = os.environ.get("PADDLE_PRICE_MONTHLY", "")   # pri_...
+PADDLE_PRICE_YEARLY = os.environ.get("PADDLE_PRICE_YEARLY", "")     # pri_...
+PADDLE_ENV = os.environ.get("PADDLE_ENV", "sandbox")            # sandbox | live
+PADDLE_API_BASE = os.environ.get("PADDLE_API_BASE", "")         # override for testing
 PREMIUM_SECRET = os.environ.get("PREMIUM_SECRET", "")
 
 # ── Extras: affiliate tags, tip jar, weekly email digest ───────────────
@@ -240,6 +248,21 @@ def stripe_get_session(session_id):
         headers={"Authorization": "Bearer " + STRIPE_SECRET_KEY})
     with urlopen(req, timeout=12) as r:
         return json.load(r)
+
+
+def _paddle_base():
+    if PADDLE_API_BASE:
+        return PADDLE_API_BASE.rstrip("/")
+    return "https://sandbox-api.paddle.com" if PADDLE_ENV == "sandbox" else "https://api.paddle.com"
+
+
+def paddle_get_transaction(txn_id):
+    """Ask Paddle whether this transaction (txn_…) is really completed."""
+    req = Request(
+        _paddle_base() + "/transactions/" + quote(txn_id, safe="") + "?include=customer",
+        headers={"Authorization": "Bearer " + PADDLE_API_KEY, "User-Agent": UA})
+    with urlopen(req, timeout=12) as r:
+        return (json.load(r) or {}).get("data") or {}
 
 
 def load_subscriptions():
@@ -842,13 +865,30 @@ class Handler(SimpleHTTPRequestHandler):
             qs = parse_qs(p.query)
             token = (qs.get("pt") or [self.headers.get("X-Premium-Token", "")])[0]
             payload = verify_premium_token(token)
+            stripe_on = bool(STRIPE_SECRET_KEY and STRIPE_PAYMENT_URL)
+            paddle_on = bool(PADDLE_API_KEY and PADDLE_CLIENT_TOKEN and PADDLE_PRICE_MONTHLY)
+            # Buttons point at Stripe links if set, otherwise our Paddle checkout page
+            if stripe_on:
+                pay_url, yearly_url = STRIPE_PAYMENT_URL, STRIPE_PAYMENT_URL_YEARLY
+                provider = "stripe"
+            elif paddle_on:
+                pay_url = "/checkout?plan=monthly"
+                yearly_url = "/checkout?plan=yearly" if PADDLE_PRICE_YEARLY else ""
+                provider = "paddle"
+            else:
+                pay_url, yearly_url, provider = "", "", ""
             self._json({
-                "enabled": bool(STRIPE_SECRET_KEY and STRIPE_PAYMENT_URL),
+                "enabled": stripe_on or paddle_on,
+                "provider": provider,
                 "price": PREMIUM_PRICE_LABEL,
-                "paymentUrl": STRIPE_PAYMENT_URL,
-                "yearlyUrl": STRIPE_PAYMENT_URL_YEARLY,
+                "paymentUrl": pay_url,
+                "yearlyUrl": yearly_url,
                 "yearlyPrice": PREMIUM_PRICE_LABEL_YEARLY,
                 "manageUrl": STRIPE_MANAGE_URL,
+                "paddle": {"enabled": paddle_on, "env": PADDLE_ENV,
+                           "clientToken": PADDLE_CLIENT_TOKEN if paddle_on else "",
+                           "monthlyPrice": PADDLE_PRICE_MONTHLY if paddle_on else "",
+                           "yearlyPrice": PADDLE_PRICE_YEARLY if paddle_on else ""},
                 "earlyMinutes": PREMIUM_EARLY_MIN,
                 "premium": bool(payload),
                 "mode": payload.get("mode") if payload else None,
@@ -862,6 +902,9 @@ class Handler(SimpleHTTPRequestHandler):
             self._json({"publicKey": VAPID_PUBLIC, "pushEnabled": HAS_PUSH,
                         "subscribers": len(_subs)})
             return
+        if p.path in ("/checkout", "/checkout.html"):
+            self.path = "/checkout.html"
+            return super().do_GET()
         if p.path == "/healthz":
             # Lightweight uptime endpoint (for external pingers / uptime monitors)
             body = json.dumps({"ok": True, "deals": len(_cache.get("data") or []),
@@ -937,8 +980,27 @@ class Handler(SimpleHTTPRequestHandler):
                             "mode": payload.get("mode") if payload else None,
                             "exp": payload.get("exp") if payload else None})
                 return
-            # activate: verify a real Stripe payment, then mint a member token
+            # activate: verify a real payment, then mint a member token
             sid = str(data.get("sessionId", "")).strip()
+            is_paddle = sid.startswith("txn_")
+            if is_paddle:
+                if not PADDLE_API_KEY:
+                    self._json({"ok": False, "error": "Paddle payments not configured yet"}, 503); return
+                if not re.fullmatch(r"txn_[A-Za-z0-9]{8,60}", sid):
+                    self._json({"ok": False, "error": "That doesn't look like a valid payment code"}, 400); return
+                try:
+                    txn = paddle_get_transaction(sid)
+                except Exception as e:
+                    print("[premium] paddle verify failed:", e)
+                    self._json({"ok": False, "error": "Could not verify that payment — try again"}, 502); return
+                if txn.get("status") not in ("completed", "paid", "ready"):
+                    self._json({"ok": False, "error": "Payment not completed yet"}, 402); return
+                mode = "subscription" if txn.get("subscription_id") else "payment"
+                email = ((txn.get("customer") or {}).get("email")) or ""
+                token = make_premium_token("paddle:" + sid, mode)
+                print("[premium] PADDLE activated:", mode, "·", email or "(no email)")
+                self._json({"ok": True, "token": token, "mode": mode, "email": email})
+                return
             if not STRIPE_SECRET_KEY:
                 self._json({"ok": False, "error": "Payments not configured yet"}, 503); return
             if not re.fullmatch(r"[A-Za-z0-9_\-]{10,255}", sid):

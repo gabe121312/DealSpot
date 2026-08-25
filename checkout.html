@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Checkout — DealSpot Premium</title>
+<style>
+  :root { --accent:#6c5ce7; --accent2:#8b5cf6; --text:#1a1a2e; --text2:#6b7280; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html { color-scheme: light; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+         min-height:100vh; display:flex; align-items:center; justify-content:center;
+         background:linear-gradient(160deg,#6c5ce7,#8b5cf6 55%,#a855f7); padding:24px; }
+  .card { background:#fff; border-radius:22px; padding:30px 24px; max-width:380px; width:100%;
+          text-align:center; box-shadow:0 25px 80px rgba(0,0,0,.3); }
+  .logo { font-size:46px; }
+  h1 { font-size:20px; font-weight:800; color:var(--text); margin:8px 0 4px; }
+  .sub { font-size:13.5px; color:var(--text2); line-height:1.5; margin-bottom:18px; }
+  .plan { display:inline-flex; align-items:center; gap:7px; background:#f6f5ff; border:1.5px solid #e4e1ff;
+          color:var(--accent); font-weight:800; font-size:14px; padding:9px 16px; border-radius:20px; margin-bottom:16px; }
+  .spinner { width:30px; height:30px; border:3px solid #e4e1ff; border-top-color:var(--accent);
+             border-radius:50%; margin:4px auto 14px; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .err { display:none; background:#fff5f5; border:1.5px solid #ffd7d7; color:#c0392b; font-size:13px;
+         padding:12px; border-radius:12px; margin-bottom:14px; line-height:1.45; }
+  .btn { display:block; text-decoration:none; background:linear-gradient(135deg,var(--accent),var(--accent2));
+         color:#fff; font-weight:800; font-size:15px; padding:13px; border-radius:13px; }
+  .note { font-size:11.5px; color:var(--text2); margin-top:14px; line-height:1.5; }
+  @media (prefers-color-scheme: dark) {
+    .card { background:#1a1a27; } h1 { color:#f2f2f7; } .sub,.note { color:#9ca3af; }
+    .plan { background:#232334; border-color:#2d2d40; }
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🏷️</div>
+    <h1>DealSpot Premium</h1>
+    <div class="sub">You're one step away from early deals, instant alerts and unlimited keywords.</div>
+    <div class="plan" id="planPill">⚡ Loading…</div>
+    <div class="spinner" id="spin"></div>
+    <div class="err" id="err"></div>
+    <a class="btn" id="backBtn" href="/" style="display:none">← Back to DealSpot</a>
+    <div class="note">Secure checkout by Paddle (merchant of record).<br>
+      Cancel any time. Changed your mind? Just close this page — you won't be charged.</div>
+  </div>
+  <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+  <script>
+  (function () {
+    var plan = new URLSearchParams(location.search).get("plan") || "monthly";
+    var pill = document.getElementById("planPill");
+    pill.textContent = plan === "yearly" ? "🎁 Annual plan" : "⚡ Monthly plan";
+    function fail(msg) {
+      document.getElementById("spin").style.display = "none";
+      pill.style.display = "none";
+      var e = document.getElementById("err");
+      e.style.display = "block";
+      e.textContent = msg;
+      document.getElementById("backBtn").style.display = "block";
+    }
+    fetch("/api/premium/config", { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (cfg) {
+        var p = cfg.paddle;
+        if (!p || !p.enabled) return fail("Payments aren't configured yet. Please try again later.");
+        var priceId = plan === "yearly" ? (p.yearlyPrice || p.monthlyPrice) : p.monthlyPrice;
+        if (!priceId) return fail("Couldn't find that plan. Please go back and try again.");
+        if (p.env === "sandbox") { try { Paddle.Environment.set("sandbox"); } catch (e) {} }
+        Paddle.Initialize({
+          token: p.clientToken,
+          eventCallback: function (ev) {
+            if (ev.name === "checkout.completed" && ev.data && ev.data.id) {
+              pill.textContent = "👑 Payment successful!";
+              document.getElementById("spin").style.display = "none";
+              setTimeout(function () {
+                window.location.href = "/?session_id=" + encodeURIComponent(ev.data.id);
+              }, 1200);
+            }
+          }
+        });
+        Paddle.Checkout.open({
+          items: [{ priceId: priceId, quantity: 1 }],
+          settings: { theme: "light", locale: "en" }
+        });
+      })
+      .catch(function () { fail("Couldn't reach the payment server. Check your connection and try again."); });
+  })();
+  </script>
+</body>
+</html>

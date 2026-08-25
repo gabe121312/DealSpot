@@ -39,6 +39,17 @@ services:
         sync: false     # e.g. "$19.99/year"
       - key: STRIPE_MANAGE_URL
         sync: false     # optional: Stripe customer portal link
+      # ── Paddle payments (merchant of record) ──
+      - key: PADDLE_API_KEY
+        sync: false     # secret API key from Paddle → Developer tools → Authentication
+      - key: PADDLE_CLIENT_TOKEN
+        sync: false     # public client-side token (same page in Paddle)
+      - key: PADDLE_PRICE_MONTHLY
+        sync: false     # price id pri_... for the monthly plan
+      - key: PADDLE_PRICE_YEARLY
+        sync: false     # price id pri_... for the annual plan
+      - key: PADDLE_ENV
+        sync: false     # "sandbox" while testing, "live" for real money
       # ── Extras: affiliate, tips, weekly email digest ──
       - key: AMAZON_TAG
         sync: false     # your Amazon Associates tag, e.g. "dealspot-20"
