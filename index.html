@@ -800,9 +800,9 @@ async function initPremium() {
   }
 }
 function premiumModeLabel() {
-  if (premium.mode === "subscription") return "Monthly member";
-  if (premium.mode === "payment") return "Lifetime member";
-  return "Premium member";
+  if (premium.mode === "subscription") return T("Monthly member");
+  if (premium.mode === "payment") return T("Lifetime member");
+  return T("Premium member");
 }
 function openPremium() { showPremiumModal(false); }
 function closePremiumModal() { document.getElementById("premiumModal").classList.remove("open"); }
@@ -818,18 +818,18 @@ function planCardsHtml() {
   const save = (mAmt != null && yAmt != null && mAmt * 12 > yAmt) ? Math.round(mAmt * 12 - yAmt) : null;
   return `<div class="plan-row">
     <a class="plan-card" href="${premiumCfg.paymentUrl}" target="_blank" rel="noopener">
-      <div class="pc-name">MONTHLY</div>
+      <div class="pc-name">${T("MONTHLY")}</div>
       <div class="pc-amt">${mPretty}</div>
-      <div class="pc-per">per month<br>cancel any time</div>
-      <div class="pc-cta">Choose →</div>
+      <div class="pc-per">${T("per month")}<br>${T("cancel any time")}</div>
+      <div class="pc-cta">${T("Choose →")}</div>
     </a>
     ${premiumCfg.yearlyUrl ? `
     <a class="plan-card best" href="${premiumCfg.yearlyUrl}" target="_blank" rel="noopener">
-      <div class="pc-badge">👑 BEST VALUE</div>
-      <div class="pc-name">ANNUAL</div>
+      <div class="pc-badge">${T("👑 BEST VALUE")}</div>
+      <div class="pc-name">${T("ANNUAL")}</div>
       <div class="pc-amt">${yPretty}</div>
-      <div class="pc-per">per year${save ? `<br><strong style="color:#e08900">save $${save}/yr</strong>` : ""}</div>
-      <div class="pc-cta">Choose →</div>
+      <div class="pc-per">${T("per year")}${save ? `<br><strong style="color:#e08900">${TF("saveYr", "$" + save)}</strong>` : ""}</div>
+      <div class="pc-cta">${T("Choose →")}</div>
     </a>` : ""}
   </div>`;
 }
@@ -860,19 +860,19 @@ function showPremiumModal(justUpgraded) {
       ${justUpgraded ? confettiHtml() : ""}
       <div style="text-align:center;margin-bottom:10px"><div style="font-size:52px">👑</div></div>
       ${justUpgraded
-        ? `<h3 class="celebrate-title" style="text-align:center;margin-bottom:4px">Congratulations! 🎉</h3>
-           <div style="text-align:center;font-size:14px;font-weight:800;color:var(--text);margin-bottom:6px">Welcome to the Premium family</div>`
-        : `<h3 style="text-align:center;margin-bottom:6px">You're Premium!</h3>`}
+        ? `<h3 class="celebrate-title" style="text-align:center;margin-bottom:4px">${T("Congratulations! 🎉")}</h3>
+           <div style="text-align:center;font-size:14px;font-weight:800;color:var(--text);margin-bottom:6px">${T("Welcome to the Premium family")}</div>`
+        : `<h3 style="text-align:center;margin-bottom:6px">${T("You're Premium!")}</h3>`}
       <div style="text-align:center;font-size:13px;color:var(--text2);margin-bottom:16px">${premiumModeLabel()}${premium.email ? " · " + escapeHtml(premium.email) : ""}</div>
       <div class="prem-active" style="margin-bottom:16px">
-        <div class="prem-feat"><span class="fi">⚡</span><span>You see every new deal <strong>${em} minutes before</strong> everyone else</span></div>
-        <div class="prem-feat"><span class="fi">🔔</span><span>Instant phone alerts — the moment a deal drops</span></div>
-        <div class="prem-feat"><span class="fi">🔑</span><span>Unlimited keywords (free = ${FREE_KEYWORD_LIMIT})</span></div>
-        <div class="prem-feat"><span class="fi">🥇</span><span>"NEW" badges on the freshest deals</span></div>
+        <div class="prem-feat"><span class="fi">⚡</span><span>${TF("featEarlySub", em)}</span></div>
+        <div class="prem-feat"><span class="fi">🔔</span><span>${TF("featAlertsSub")}</span></div>
+        <div class="prem-feat"><span class="fi">🔑</span><span>${TF("featKeywords", FREE_KEYWORD_LIMIT)}</span></div>
+        <div class="prem-feat"><span class="fi">🥇</span><span>${T("Supporter badge + NEW badges on the freshest deals")}</span></div>
       </div>
-      <div style="text-align:center;font-size:12.5px;color:var(--text2);margin-bottom:14px">Thank you for supporting DealSpot ❤️</div>
+      <div style="text-align:center;font-size:12.5px;color:var(--text2);margin-bottom:14px">${T("Thank you for supporting DealSpot ❤️")}</div>
       ${premiumCfg.manageUrl ? `<a class="btn btn-ghost btn-block" href="${premiumCfg.manageUrl}" target="_blank" rel="noopener">Manage subscription</a>` : ""}
-      <div class="modal-actions" style="padding:0"><button class="btn btn-save" style="flex:1" onclick="closePremiumModal()">${justUpgraded ? "Let's go! 🚀" : "Done"}</button></div>
+      <div class="modal-actions" style="padding:0"><button class="btn btn-save" style="flex:1" onclick="closePremiumModal()">${justUpgraded ? T("Let's go! 🚀") : T("Done")}</button></div>
       </div>`;
   } else {
     el.innerHTML = `
@@ -880,13 +880,13 @@ function showPremiumModal(justUpgraded) {
       <h3 style="text-align:center;margin-bottom:6px">DealSpot Premium</h3>
       <div style="text-align:center;font-size:13px;color:var(--text2);margin-bottom:16px">Be first in line for every deal</div>
       <div class="prem-active" style="margin-bottom:16px">
-        <div class="prem-feat"><span class="fi">⚡</span><span>New deals <strong>${em} minutes early</strong><small>Hot deals sell out fast — see them first</small></span></div>
-        <div class="prem-feat"><span class="fi">🔔</span><span>Instant phone alerts<small>Free members wait ${em} minutes</small></span></div>
-        <div class="prem-feat"><span class="fi">🔑</span><span>Unlimited keywords<small>Free = ${FREE_KEYWORD_LIMIT} (PS5, air fryer, TV…)</small></span></div>
-        <div class="prem-feat"><span class="fi">👑</span><span>Supporter badge + freshest-deal badges</span></div>
+        <div class="prem-feat"><span class="fi">⚡</span><span>${TF("featEarlyUpsell", em)}</span></div>
+        <div class="prem-feat"><span class="fi">🔔</span><span>${TF("featAlertsUpsell", em)}</span></div>
+        <div class="prem-feat"><span class="fi">🔑</span><span>${TF("featKeywords", FREE_KEYWORD_LIMIT)}</span></div>
+        <div class="prem-feat"><span class="fi">👑</span><span>${T("Supporter badge + NEW badges on the freshest deals")}</span></div>
       </div>
       ${premiumCfg.enabled
-        ? planCardsHtml() + `<div style="text-align:center;font-size:11.5px;color:var(--text2);margin-top:8px">${premiumCfg.provider==="paddle" ? "Secure checkout by Paddle · cancel any time" : "Secure payment via Stripe · cancel any time"}</div>`
+        ? planCardsHtml() + `<div style="text-align:center;font-size:11.5px;color:var(--text2);margin-top:8px">${premiumCfg.provider==="paddle" ? T("Secure checkout by Paddle · cancel any time") : T("Secure payment via Stripe · cancel any time")}</div>`
         : `<div class="btn btn-primary btn-block" style="text-align:center;opacity:.55">Payments coming soon 👷</div>
            <div style="text-align:center;font-size:11.5px;color:var(--text2);margin-top:8px">Check back shortly!</div>`}
       <div class="modal-actions" style="padding:0;margin-top:14px"><button class="btn btn-cancel" style="flex:1" onclick="closePremiumModal()">Maybe later</button></div>`;
