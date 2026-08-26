@@ -288,6 +288,7 @@
   .card.possibly-dead { opacity:.5; }
   .card.possibly-dead:hover { opacity:.85; }
   .local-badge.dead-badge { background:#868e96; }
+  .local-badge.stale { background:#9ca3af; }
   .digest-row { display:flex; gap:8px; margin-top:10px; }
   .digest-row input { flex:1; padding:10px 13px; border:1.5px solid var(--border); border-radius:10px; background:var(--card2); color:var(--text); font-size:14px; font-family:inherit; outline:none; }
   .vote-row { display:flex; align-items:center; gap:7px; margin-top:9px; padding-top:8px; border-top:1px dashed var(--border); }
@@ -602,6 +603,14 @@
     </div>
   </div>
 
+  <!-- Price target modal -->
+  <div class="modal-overlay" id="targetModal">
+    <div class="modal whatsnew" style="border-radius:22px">
+      <div class="modal-handle"></div>
+      <div id="targetBody"></div>
+    </div>
+  </div>
+
   <!-- Refunds / billing modal -->
   <div class="modal-overlay" id="refundModal">
     <div class="modal whatsnew" style="border-radius:22px">
@@ -675,9 +684,11 @@ let premium = {
   session: localStorage.getItem("ds_premium_session") || "",
   mode: "", email: "",
 };
-let premiumCfg = { enabled:false, price:"", paymentUrl:"", yearlyUrl:"", yearlyPrice:"", manageUrl:"", earlyMinutes:8 };
+let premiumCfg = { enabled:false, price:"", paymentUrl:"", yearlyUrl:"", yearlyPrice:"", manageUrl:"", earlyMinutes:8, paddle:{} };
 let premiumTeaser = null; // {count, unlockAt} — deals free users can't see yet
 let votes = JSON.parse(localStorage.getItem("ds_votes") || "{}"); // dealId -> "fire"|"dead"
+let priceTargets = JSON.parse(localStorage.getItem("ds_targets") || "{}"); // dealId -> target price (Premium)
+let targetHits = JSON.parse(localStorage.getItem("ds_target_hits") || "[]"); // ids already alerted
 
 function dealIsDead(d) {
   const v = d.votes;
@@ -830,6 +841,11 @@ async function activatePremium(sessionId, silent) {
       d = await r.json();
     } catch(e) { d = null; } // network failed (sleeping server) — retry
   }
+  if (d && d.ok && d.coffee) {
+    try { localStorage.removeItem("ds_pending_txn"); } catch(e) {}
+    showCoffeeThanks();
+    return true;
+  }
   if (d && d.ok) {
     try { localStorage.removeItem("ds_pending_txn"); } catch(e) {}
     premium.active = true; premium.token = d.token; premium.mode = d.mode; premium.email = d.email || "";
@@ -935,6 +951,19 @@ function planCardsHtml() {
     </a>` : ""}
   </div>`;
 }
+function showCoffeeThanks(){
+  const el = document.getElementById("premiumModalBody");
+  el.innerHTML = `
+    <div style="position:relative">
+    ${confettiHtml()}
+    <div style="text-align:center;margin-bottom:10px"><div style="font-size:56px">☕</div></div>
+    <h3 class="celebrate-title" style="text-align:center;margin-bottom:4px">Coffee received!</h3>
+    <div style="text-align:center;font-size:14px;font-weight:800;color:var(--text);margin-bottom:6px">Thank you so much for supporting DealSpot</div>
+    <div style="text-align:center;font-size:13px;color:var(--text2);margin-bottom:14px">— Gabe, the guy who built this 🤍</div>
+    <div class="modal-actions" style="padding:0"><button class="btn btn-save" style="flex:1" onclick="closePremiumModal()">Back to the deals ☕</button></div>
+    </div>`;
+  document.getElementById("premiumModal").classList.add("open");
+}
 function confettiHtml(){
   const emojis = ["🎉","🎊","👑","⚡","💰","🤑"];
   const parts = [];
@@ -989,6 +1018,8 @@ function showPremiumModal(justUpgraded) {
       </div>
       ${premiumCfg.enabled
         ? planCardsHtml() + `<div style="text-align:center;font-size:11.5px;color:var(--text2);margin-top:8px">${premiumCfg.provider==="paddle" ? T("Secure checkout by Paddle · cancel any time") : T("Secure payment via Stripe · cancel any time")}</div>`
+        + `<div style="text-align:center;font-size:11.5px;color:var(--text2);margin-top:4px">💡 Got a discount code? Apply it at checkout.</div>`
+        + ((premiumCfg.paddle && premiumCfg.paddle.coffeePrice) ? `<a class="btn btn-ghost btn-block" style="margin-top:10px;text-decoration:none;text-align:center" href="/checkout?plan=coffee" target="_blank" rel="noopener">☕ Not ready to subscribe? Buy Gabe a coffee</a>` : "")
         : `<div class="btn btn-primary btn-block" style="text-align:center;opacity:.55">Payments coming soon 👷</div>
            <div style="text-align:center;font-size:11.5px;color:var(--text2);margin-top:8px">Check back shortly!</div>`}
       <div class="modal-actions" style="padding:0;margin-top:14px"><button class="btn btn-cancel" style="flex:1" onclick="closePremiumModal()">Maybe later</button></div>`;
@@ -1053,6 +1084,7 @@ async function sendSubToServer(sub, remove) {
       body: JSON.stringify({subscription: sub, prefs: {
         keywords: settings.notifKeywords, stores: settings.notifStores,
         minDiscount: settings.notifMinDiscount,
+        targets: Object.entries(priceTargets).slice(0, 50).map(([id, t]) => ({id: id, t: t})),
       }, premiumToken: premium.token}),
     });
   } catch(e) {}
@@ -1135,6 +1167,7 @@ async function loadDeals(force) {
       premiumTeaser = data.premiumTeaser || null;
       // Mark seen & run alerts only on subsequent loads (never on first).
       if (!firstLoad) checkForAlerts(newOnes);
+      checkTargetAlerts(data.deals);
       seenIds = data.deals.map(d => String(d.id));
       localStorage.setItem("ds_seen", JSON.stringify(seenIds));
       firstLoad = false;
@@ -1276,7 +1309,9 @@ function render() {
       const orig = d.orig ? `<span class="price-orig">$${d.orig.toFixed(2)}</span>` : "";
       const save = (d.sale && d.orig && d.orig>d.sale) ? `<div class="price-save">${TF("saveX", "$" + (d.orig-d.sale).toFixed(2))}</div>` : "";
       const badgeHtml = (p > 0 ? `<span class="discount-badge">-${p}%</span>` : "") + (fresh ? `<span class="new-badge">NEW</span>` : "");
+      const ageDays = d.firstSeen ? Math.floor((Date.now() - d.firstSeen) / 86400000) : 0;
       let localBadge = "";
+      if (ageDays >= 2) localBadge = `<span class="local-badge stale">${ageDays}d old</span>`;
       if (d.ymmv) localBadge = `<span class="local-badge ymmv">YMMV</span>`;
       else if (d.inStore || isInStoreDeal(d)) localBadge = `<span class="local-badge in-store">IN-STORE</span>`;
       const esc = d.name.replace(/"/g,"&quot;");
@@ -1303,6 +1338,7 @@ function render() {
               <button class="heart share-btn" title="Share" onclick="event.preventDefault();event.stopPropagation();shareDeal('${d.id}')" aria-label="Share deal">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
               </button>
+              ${currentStore === "watchlist" ? `<button class="heart ${priceTargets[String(d.id)]?"active":""}" style="${priceTargets[String(d.id)]?"background:#fff7e0;color:#e08900":"padding:0 9px;width:auto;font-size:16px;font-weight:800;color:var(--text2)"}" title="Set target price" onclick="event.preventDefault();event.stopPropagation();openTargetModal('${d.id}')">🎯</button>` : ""}
               <button class="heart ${inList?"active":""}" title="Save to watchlist" onclick="event.preventDefault();event.stopPropagation();toggleHeart('${d.id}')">
                 <svg viewBox="0 0 24 24" fill="${inList?"currentColor":"none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
               </button>
@@ -1728,7 +1764,9 @@ function renderSettings() {
       </div>
       <button class="btn btn-ghost btn-block" onclick="showWhatsNew()">✨ What's new (v${APP_VERSION})</button>
       <button class="btn btn-ghost btn-block" onclick="shareApp()">📣 Share DealSpot with a friend</button>
-      ${premiumCfg.tipUrl ? `<a class="btn btn-ghost btn-block" style="text-decoration:none;text-align:center" href="${premiumCfg.tipUrl}" target="_blank" rel="noopener">☕ Tip jar — support DealSpot</a>` : ""}
+      ${(premiumCfg.paddle && premiumCfg.paddle.coffeePrice)
+        ? `<a class="btn btn-ghost btn-block" style="text-decoration:none;text-align:center" href="/checkout?plan=coffee" target="_blank" rel="noopener">☕ Buy Gabe a coffee</a>`
+        : (premiumCfg.tipUrl ? `<a class="btn btn-ghost btn-block" style="text-decoration:none;text-align:center" href="${premiumCfg.tipUrl}" target="_blank" rel="noopener">☕ Tip jar — support DealSpot</a>` : "")}
       <button class="btn btn-ghost btn-block" onclick="showOnboarding()">👋 Replay welcome tour</button>
       <div class="legal-grid">
         <a class="legal-tile" href="/pricing" target="_blank" rel="noopener"><span class="li">💵</span> Pricing</a>
@@ -1874,6 +1912,62 @@ function addKw(){
   if (!settings.notifKeywords.includes(v)) { settings.notifKeywords.push(v); saveSettings(); renderSettings(); }
   inp.value="";
 }
+function checkTargetAlerts(deals) {
+  if (!premium.active || !deals) return;
+  let hit = false;
+  deals.forEach(d => {
+    const t = priceTargets[String(d.id)];
+    if (t && d.sale && d.sale <= t && !targetHits.includes(String(d.id))) {
+      targetHits.push(String(d.id));
+      hit = true;
+      notifs.unshift({id:"n_"+Date.now()+"_"+Math.random().toString(36).slice(2,6), title:"🎯 Target price hit!", body:d.name + " — now $" + d.sale.toFixed(2) + " (target $" + Number(t).toFixed(2) + ")", url:dealHref(d), dealId:String(d.id), ts:Date.now(), read:false});
+      if (settings.notifEnabled) pushBrowserNotification({title:"🎯 Target price hit!", body:d.name, url:dealHref(d)});
+    }
+  });
+  if (hit) {
+    try { localStorage.setItem("ds_target_hits", JSON.stringify(targetHits.slice(-200))); } catch(e) {}
+    saveNotifs(); updateAlertBadge();
+    showToast("🎯 A deal hit your target price!");
+  }
+}
+function openTargetModal(id){
+  if (!premium.active) { showToast("🎯 Price targets are a Premium feature"); openPremium(); return; }
+  const d = findDeal(id); if (!d) return;
+  const cur = priceTargets[String(id)] || "";
+  document.getElementById("targetBody").innerHTML = `
+    <div style="text-align:center;font-size:44px;margin-bottom:6px">🎯</div>
+    <h3 style="text-align:center;margin-bottom:4px">Set your target price</h3>
+    <div class="row-sub" style="text-align:center;margin-bottom:14px">${d.name.replace(/"/g,"&quot;").slice(0,80)}…</div>
+    <div style="background:var(--card2);border-radius:12px;padding:12px;margin-bottom:14px;font-size:13px">
+      Current price: <b style="color:var(--text)">${d.sale ? "$"+d.sale.toFixed(2) : "—"}</b>
+      ${cur ? `<br>Your target: <b style="color:#e08900">$${Number(cur).toFixed(2)}</b>` : ""}
+    </div>
+    <div class="digest-row" style="margin-bottom:14px">
+      <input type="number" inputmode="decimal" step="0.01" min="0.5" id="targetInput" placeholder="Alert me under $…" value="${cur}" style="flex:1;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;background:var(--card2);color:var(--text);font-size:16px;font-family:inherit">
+    </div>
+    <button class="btn btn-primary btn-block" onclick="saveTarget('${id}')">🎯 Save target</button>
+    ${cur ? `<button class="btn btn-ghost btn-block" onclick="removeTarget('${id}')">Remove target</button>` : ""}
+    <div class="modal-actions" style="padding:0;margin-top:8px"><button class="btn btn-cancel" style="flex:1" onclick="closeTargetModal()">Cancel</button></div>`;
+  document.getElementById("targetModal").classList.add("open");
+}
+function closeTargetModal(){ document.getElementById("targetModal").classList.remove("open"); }
+function saveTarget(id){
+  const v = parseFloat((document.getElementById("targetInput").value || "").replace(",", "."));
+  const d = findDeal(id);
+  if (!v || v <= 0) { showToast("Enter a price like 149.99"); return; }
+  if (d && d.sale && v >= d.sale) { showToast("Tip: set it BELOW the current price ($" + d.sale.toFixed(2) + ")"); return; }
+  priceTargets[String(id)] = v;
+  try { localStorage.setItem("ds_targets", JSON.stringify(priceTargets)); } catch(e) {}
+  const i = targetHits.indexOf(String(id)); if (i > -1) targetHits.splice(i, 1);
+  closeTargetModal(); syncPushPrefs(); render();
+  showToast("🎯 Target set — we'll watch this deal");
+}
+function removeTarget(id){
+  delete priceTargets[String(id)];
+  try { localStorage.setItem("ds_targets", JSON.stringify(priceTargets)); } catch(e) {}
+  closeTargetModal(); syncPushPrefs(); render();
+  showToast("Target removed");
+}
 function doRestore(){
   const inp = document.getElementById("restoreInput");
   const v = (inp && inp.value || "").trim();
@@ -1983,21 +2077,74 @@ function saveProduct(){
 }
 
 // ── Share a deal ───────────────────────────────────────────────
-async function shareDeal(id) {
-  const d = findDeal(id);
-  if (!d) return;
-  const href = dealHref(d);
-  const text = `🔥 Deal: ${d.name} — $${d.sale?d.sale.toFixed(2):"View deal"}${d.orig?" (was $"+d.orig.toFixed(2)+")":""}`;
-  if (navigator.share) {
-    try { await navigator.share({title:"DealSpot deal", text, url:href}); return; }
-    catch(e) { if(e.name!=="AbortError") {/* fall through to copy */} }
-  }
-  try {
-    await navigator.clipboard.writeText(href);
-    showToast("Link copied to clipboard 📋");
-  } catch(e) {
-    window.prompt("Copy this deal link:", href);
-  }
+async function shareDeal(id){
+  const d = findDeal(id); if (!d) return;
+  const text = `🔥 ${d.sale ? "$"+d.sale.toFixed(2) : "Deal"}${d.orig ? " (was $"+d.orig.toFixed(2)+")" : ""} — ${d.name.slice(0,90)} · ${d.storeLabel||"Deal"} · found with DealSpot`;
+  buildShareCard(d).then(file => {
+    if (file && navigator.canShare && navigator.canShare({files:[file]})) {
+      navigator.share({files:[file], text: text, url: dealHref(d)}).catch(()=>{});
+    } else if (navigator.share) {
+      navigator.share({title:"DealSpot", text: text, url: dealHref(d)}).catch(()=>{});
+    } else {
+      const done = () => showToast("Deal copied — paste it anywhere! 📋");
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text + " " + dealHref(d)).then(done).catch(()=>showToast(text));
+      else showToast(text);
+    }
+  });
+}
+function buildShareCard(d){
+  // Generates a pretty shareable image (1080x1350). Falls back to plain text if unsupported.
+  return new Promise(resolve => {
+    try {
+      const W = 1080, H = 1350;
+      const c = document.createElement("canvas"); c.width = W; c.height = H;
+      const x = c.getContext("2d"); if (!x) return resolve(null);
+      const g = x.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, "#6c5ce7"); g.addColorStop(.6, "#8b5cf6"); g.addColorStop(1, "#a855f7");
+      x.fillStyle = g; x.fillRect(0, 0, W, H);
+      x.fillStyle = "#ffffff";
+      const R = 48;
+      x.beginPath(); x.roundRect(70, 70, W-140, H-240, R); x.fill();
+      x.fillStyle = "#1a1a2e"; x.textBaseline = "top";
+      const store = d.storeLabel || "Deal";
+      x.font = "700 34px -apple-system, Roboto, Arial, sans-serif";
+      x.fillStyle = "#6b7280"; x.fillText(store.toUpperCase() + "  ·  LIVE DEAL", 130, 140);
+      x.fillStyle = "#1a1a2e"; x.font = "800 62px -apple-system, Roboto, Arial, sans-serif";
+      const words = (d.name || "").split(" "); const lines = []; let line = "";
+      words.forEach(w => { const t2 = line ? line + " " + w : w;
+        if (x.measureText(t2).width > W-260 && line) { lines.push(line); line = w; } else line = t2; });
+      if (line) lines.push(line);
+      lines.slice(0, 5).forEach((ln, i) => x.fillText(ln, 130, 220 + i * 76));
+      let yBase = 220 + Math.min(lines.length, 5) * 76 + 30;
+      const pctOff = pct(d);
+      if (d.orig && d.sale && pctOff > 0) {
+        x.font = "500 44px -apple-system, Roboto, Arial, sans-serif"; x.fillStyle = "#9ca3af";
+        x.fillText("$" + d.orig.toFixed(2), 130, yBase); yBase += 66;
+      }
+      if (d.sale) {
+        x.font = "900 128px -apple-system, Roboto, Arial, sans-serif"; x.fillStyle = "#1a1a2e";
+        x.fillText("$" + d.sale.toFixed(2), 130, yBase);
+        if (pctOff > 0) {
+          const pw = 210; const px = 130 + x.measureText("$" + d.sale.toFixed(2)).width + 30;
+          x.font = "900 46px -apple-system, Roboto, Arial, sans-serif";
+          const gg = x.createLinearGradient(px, 0, px+pw, 0);
+          gg.addColorStop(0, "#f59e0b"); gg.addColorStop(1, "#ef4444");
+          x.fillStyle = gg; x.beginPath(); x.roundRect(px, yBase+22, pw, 76, 38); x.fill();
+          x.fillStyle = "#fff"; x.fillText("-" + pctOff + "%", px + 42, yBase + 32);
+        }
+      }
+      x.font = "600 34px -apple-system, Roboto, Arial, sans-serif"; x.fillStyle = "#6b7280";
+      x.fillText((d.emoji || "🛍️") + "  Tap to grab it before it's gone", 130, H - 300);
+      x.fillStyle = "#6c5ce7"; x.font = "900 52px -apple-system, Roboto, Arial, sans-serif";
+      x.fillText("🏷️ DealSpot", 130, H - 220);
+      x.font = "500 30px -apple-system, Roboto, Arial, sans-serif"; x.fillStyle = "#9ca3af";
+      x.fillText("Live deals from Amazon, Walmart, Best Buy & more", 130, H - 150);
+      c.toBlob(b => {
+        if (!b) return resolve(null);
+        resolve(new File([b], "dealspot.png", {type: "image/png"}));
+      }, "image/png");
+    } catch(e) { resolve(null); }
+  });
 }
 
 // ── Swipe between tabs (Deals ↔ Watchlist ↔ Alerts ↔ Settings) ─
@@ -2142,8 +2289,12 @@ if ("serviceWorker" in navigator) {
 }
 
 // ── "What's new" on update ─────────────────────────────────────
-const APP_VERSION = "3.5.1";
+const APP_VERSION = "3.6.1";
 const CHANGELOG = [
+  { ic:"🎯", t:"Price-target alerts (Premium)", d:"Watching a deal in your Watchlist? Tap 🎯, set your price, and DealSpot pings you the moment it drops under it — on your phone and in the app." },
+  { ic:"🖼️", t:"Shareable deal cards", d:"Sharing a deal now creates a beautiful share image with the price slash and discount badge — perfect for stories, WhatsApp and group chats." },
+  { ic:"💡", t:"Discount codes", d:"Have a promo code? There's now a hint at checkout — enter it right in the payment window." },
+  { ic:"🌍", t:"Language stats", d:"The owner dashboard now shows which languages your visitors use." },
   { ic:"🎨", t:"Made by Gabriel Garcia Ortiz", d:"DealSpot now carries its maker's signature — a one-time splash on first open, a creator card in Settings → About, and full copyright in the privacy policy." },
   { ic:"🎄", t:"Holiday Deal HQ", d:"A festive new tab with live Black Friday, Cyber Monday and Christmas countdowns, Top-20 deal rankings, gift budgets (under $25/$50/$100) and one-tap mega-deal alerts for 70%+ drops. Santa approves." },
   { ic:"💳", t:"Refunds made friendly", d:"Premium members can now open Billing & Refunds from Settings to get their purchase reference and reach Paddle support in one tap." },

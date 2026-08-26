@@ -49,7 +49,7 @@
   (function () {
     var plan = new URLSearchParams(location.search).get("plan") || "monthly";
     var pill = document.getElementById("planPill");
-    pill.textContent = plan === "yearly" ? "🎁 Annual plan" : "⚡ Monthly plan";
+    pill.textContent = plan === "yearly" ? "🎁 Annual plan" : (plan === "coffee" ? "☕ Coffee for Gabe" : "⚡ Monthly plan");
     function fail(msg) {
       document.getElementById("spin").style.display = "none";
       pill.style.display = "none";

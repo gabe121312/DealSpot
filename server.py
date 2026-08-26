@@ -138,6 +138,7 @@ PADDLE_API_KEY = os.environ.get("PADDLE_API_KEY", "")           # secret
 PADDLE_CLIENT_TOKEN = os.environ.get("PADDLE_CLIENT_TOKEN", "") # public, for Paddle.js
 PADDLE_PRICE_MONTHLY = os.environ.get("PADDLE_PRICE_MONTHLY", "")   # pri_...
 PADDLE_PRICE_YEARLY = os.environ.get("PADDLE_PRICE_YEARLY", "")     # pri_...
+PADDLE_PRICE_COFFEE = os.environ.get("PADDLE_PRICE_COFFEE", "")     # pri_... one-time coffee tip
 PADDLE_ENV = os.environ.get("PADDLE_ENV", "sandbox")            # sandbox | live
 PADDLE_API_BASE = os.environ.get("PADDLE_API_BASE", "")         # override for testing
 PREMIUM_SECRET = os.environ.get("PREMIUM_SECRET", "")
@@ -162,6 +163,8 @@ DIGEST_FROM = os.environ.get("DIGEST_FROM", "DealSpot <dealspot@resend.dev>")
 MYMEMORY_EMAIL = os.environ.get("MYMEMORY_EMAIL", "")   # optional: raises free quota
 SUPPORTED_LANGS = {"es","fr","de","pt","it","nl","pl","tr","ru","uk","ar","he",
                    "hi","bn","ur","zh-CN","zh-TW","ja","ko","vi","th","id","tl","el"}
+TARGETS_SENT_FILE = os.path.join(HERE, "targets_sent.json")
+_targets_sent = {}   # endpoint -> {dealId: True} (alerts already fired)
 TRANSLATIONS_FILE = os.path.join(HERE, "translations.json")
 _translations = {}          # lang -> {deal id: translated name}
 _tr_lock = threading.Lock()
@@ -169,6 +172,7 @@ _tr_fail_until = 0          # backoff timestamp after service errors
 
 # ── Community votes + digest list state ────────────────────────────────
 VOTES_FILE = os.path.join(HERE, "votes.json")
+_ts_lock = threading.Lock()
 _votes = {}                    # deal id -> {"fire": n, "dead": n}
 _votes_lock = threading.Lock()
 DIGEST_FILE = os.path.join(HERE, "digest_emails.json")
@@ -315,6 +319,21 @@ def _panel_html(key):
         return t
 
     t7 = agg(last7)
+    def agg_langs(dlist):
+        langs = {}
+        for dl in dlist:
+            for lg, n in (day(dl).get("langs", {}) or {}).items():
+                langs[lg] = langs.get(lg, 0) + n
+        return langs
+    LANG_NAMES = {"en": "English", "es": "Español", "fr": "Français", "de": "Deutsch",
+                  "pt": "Português", "it": "Italiano", "nl": "Nederlands", "pl": "Polski",
+                  "tr": "Türkçe", "ru": "Русский", "uk": "Українська", "ar": "العربية",
+                  "he": "עברית", "hi": "हिन्दी", "bn": "বাংলা", "ur": "اردو",
+                  "zh-CN": "中文(简)", "zh-TW": "中文(繁)", "ja": "日本語", "ko": "한국어",
+                  "vi": "Tiếng Việt", "th": "ไทย", "id": "Indonesia", "tl": "Filipino", "el": "Ελληνικά"}
+    all_langs = sorted(agg_langs(sorted(days.keys())).items(), key=lambda x: -x[1])[:6]
+    lang_rows = "".join(f"<tr><td>{LANG_NAMES.get(c, c)}</td><td style='text-align:right'><b>{n}</b></td></tr>"
+                        for c, n in all_langs) or "<tr><td colspan=2>English only so far</td></tr>"
     all_stores = agg(sorted(days.keys()))["stores"]
     top = sorted(all_stores.items(), key=lambda x: -x[1])[:8]
     mx = top[0][1] if top else 1
@@ -351,6 +370,8 @@ def _panel_html(key):
             + rows7 + "</table>"
             "<h2>🏬 Most-tapped stores (all-time)</h2>"
             "<table>" + bars + "</table>"
+            "<h2>🌍 Top languages (all-time opens)</h2>"
+            "<table>" + lang_rows + "</table>"
             "<div class='note'>All numbers are anonymous counts — no personal data is stored. "
             "Stats reset if the free-tier server restarts (last 60 days kept while awake).</div>"
             "</body></html>")
@@ -430,6 +451,30 @@ def save_translations():
         print("[i18n] could not save:", e)
 
 
+def load_targets_sent():
+    try:
+        with open(TARGETS_SENT_FILE) as f:
+            _targets_sent.update(json.load(f))
+    except Exception:
+        pass
+
+
+def mark_target_sent(endpoint, deal_id):
+    with _ts_lock:
+        d = _targets_sent.setdefault(endpoint, {})
+        d[deal_id] = True
+        if len(d) > 300:  # keep it small
+            for k in list(d.keys())[:len(d) - 200]:
+                d.pop(k, None)
+        try:
+            tmp = TARGETS_SENT_FILE + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump(_targets_sent, f)
+            os.replace(tmp, TARGETS_SENT_FILE)
+        except Exception:
+            pass
+
+
 def load_stats():
     try:
         with open(STATS_FILE) as f:
@@ -459,10 +504,13 @@ def _stat_day():
         return day, _stats[day]
 
 
-def stat_record_load(vid):
+def stat_record_load(vid, lang=""):
     day, d = _stat_day()
     with _stats_lock:
         d["loads"] += 1
+        if lang:
+            langs = d.setdefault("langs", {})
+            langs[lang] = langs.get(lang, 0) + 1
         if vid and vid not in d["vids"]:
             d["vids"].append(vid)
             if len(d["vids"]) > 5000:
@@ -949,6 +997,38 @@ def load_live_deals(force=False):
         return all_deals, True
 
 
+def check_target_alerts():
+    """🎯 Ping premium members when a watched deal hits their target price."""
+    if not HAS_PUSH or not _subs:
+        return
+    by_id = {d["id"]: d for d in (_cache.get("data") or [])}
+    fired = 0
+    for sub in list(_subs):
+        if not sub.get("premium"):
+            continue
+        targets = (sub.get("prefs") or {}).get("targets") or []
+        if not targets:
+            continue
+        endpoint = sub["subscription"].get("endpoint", "")
+        sent = _targets_sent.get(endpoint, {})
+        for t in targets:
+            d = by_id.get(t["id"])
+            if not d or d.get("sale") is None:
+                continue
+            if d["sale"] <= t["t"] and not sent.get(t["id"]):
+                payload = {
+                    "title": f"🎯 Target price hit — {d.get('storeLabel', 'Deal')}!",
+                    "body": f"{d['name'][:100]} — now ${d['sale']:.2f} (your target: ${t['t']:.2f})",
+                    "url": PUBLIC_BASE_URL + "/?tab=watchlist" if PUBLIC_BASE_URL else (d.get("url") or "/"),
+                    "tag": "target-" + str(t["id"]),
+                }
+                send_push(sub, payload)
+                mark_target_sent(endpoint, t["id"])
+                fired += 1
+    if fired:
+        print(f"[targets] fired {fired} target alerts")
+
+
 def background_refresh_loop():
     """Refresh the feed every minute and push truly-new matching deals."""
     while True:
@@ -961,6 +1041,7 @@ def background_refresh_loop():
             if new_deals:
                 print(f"[push] {len(new_deals)} new deals; broadcasting to {len(_subs)} devices")
                 broadcast_new_deals(new_deals)
+            check_target_alerts()
         except Exception as e:
             print("[push] background error:", e)
 
@@ -1008,7 +1089,8 @@ class Handler(SimpleHTTPRequestHandler):
                 if lang in SUPPORTED_LANGS:
                     deals = translate_deal_names(deals, lang)
                 try:
-                    stat_record_load((qs.get("vid") or [""])[0][:24])
+                    stat_record_load((qs.get("vid") or [""])[0][:24],
+                                     (qs.get("lang") or ["en"])[0][:8])
                 except Exception:
                     pass
                 out = {"deals": deals, "count": len(deals),
@@ -1059,7 +1141,8 @@ class Handler(SimpleHTTPRequestHandler):
                 "paddle": {"enabled": paddle_on, "env": PADDLE_ENV,
                            "clientToken": PADDLE_CLIENT_TOKEN if paddle_on else "",
                            "monthlyPrice": PADDLE_PRICE_MONTHLY if paddle_on else "",
-                           "yearlyPrice": PADDLE_PRICE_YEARLY if paddle_on else ""},
+                           "yearlyPrice": PADDLE_PRICE_YEARLY if paddle_on else "",
+                           "coffeePrice": PADDLE_PRICE_COFFEE if paddle_on else ""},
                 "earlyMinutes": PREMIUM_EARLY_MIN,
                 "premium": bool(payload),
                 "mode": payload.get("mode") if payload else None,
@@ -1080,7 +1163,12 @@ class Handler(SimpleHTTPRequestHandler):
             # checkout id, which can't be verified).
             qs = parse_qs(p.query)
             plan = qs.get("plan", ["monthly"])[0]
-            price = PADDLE_PRICE_YEARLY if (plan == "yearly" and PADDLE_PRICE_YEARLY) else PADDLE_PRICE_MONTHLY
+            if plan == "coffee" and PADDLE_PRICE_COFFEE:
+                price = PADDLE_PRICE_COFFEE
+            elif plan == "yearly" and PADDLE_PRICE_YEARLY:
+                price = PADDLE_PRICE_YEARLY
+            else:
+                price = PADDLE_PRICE_MONTHLY
             if not PADDLE_API_KEY or not price:
                 self._json({"ok": False, "error": "Paddle payments not configured yet"}, 503); return
             body = json.dumps({"items": [{"price_id": price, "quantity": 1}]}).encode()
@@ -1232,6 +1320,14 @@ class Handler(SimpleHTTPRequestHandler):
                     self._json({"ok": False, "error": "Could not verify that payment — try again"}, 502); return
                 if txn.get("status") != "completed":
                     self._json({"ok": False, "error": "Payment not completed yet"}, 402); return
+                items = txn.get("items") or []
+                is_coffee = any(((it.get("price") or {}).get("id") == PADDLE_PRICE_COFFEE)
+                                for it in items) if PADDLE_PRICE_COFFEE else False
+                if is_coffee:
+                    email = ((txn.get("customer") or {}).get("email")) or ""
+                    print("[premium] coffee tip received ☕ ·", email or "(no email)")
+                    self._json({"ok": True, "coffee": True, "email": email})
+                    return
                 mode = "subscription" if txn.get("subscription_id") else "payment"
                 email = ((txn.get("customer") or {}).get("email")) or ""
                 token = make_premium_token("paddle:" + sid, mode)
@@ -1274,7 +1370,18 @@ class Handler(SimpleHTTPRequestHandler):
                 # Dedupe by endpoint
                 _subs[:] = [s for s in _subs if s["subscription"].get("endpoint") != endpoint]
                 if p.path == "/api/push/sub":
-                    _subs.append({"subscription": sub, "prefs": data.get("prefs", {}) or {},
+                    prefs = data.get("prefs", {}) or {}
+                    targets = []
+                    for t in (prefs.get("targets") or [])[:50]:
+                        try:
+                            tid = str(t.get("id", ""))[:40]
+                            tt = float(t.get("t", 0))
+                            if tid and tt > 0:
+                                targets.append({"id": tid, "t": tt})
+                        except Exception:
+                            pass
+                    prefs["targets"] = targets
+                    _subs.append({"subscription": sub, "prefs": prefs,
                                   "premium": bool(verify_premium_token(data.get("premiumToken", "")))})
                 save_subscriptions()
             self._json({"ok": True, "subscribers": len(_subs)})
@@ -1294,6 +1401,7 @@ if __name__ == "__main__":
     load_digest()
     load_translations()
     load_stats()
+    load_targets_sent()
     print(f"DealSpot running at http://0.0.0.0:{PORT}")
     print(f"[push] available: {HAS_PUSH} | subscribers: {len(_subs)} | "
           f"public key: {VAPID_PUBLIC[:16]}…")
