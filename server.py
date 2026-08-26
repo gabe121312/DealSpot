@@ -919,8 +919,17 @@ class Handler(SimpleHTTPRequestHandler):
                 with urlopen(req, timeout=12) as r:
                     data = (json.load(r) or {}).get("data") or {}
             except Exception as e:
-                print("[premium] paddle txn create failed:", e)
-                self._json({"ok": False, "error": "Could not start checkout — try again"}, 502); return
+                detail = str(e)[:160]
+                try:
+                    perr = (json.loads(e.read() or b"{}").get("error") or {})
+                    code = perr.get("code") or ""
+                    extra = perr.get("detail") or ""
+                    detail = f"HTTP {getattr(e,'code','?')} {code} {str(extra)[:120]}".strip()
+                except Exception:
+                    pass
+                print("[premium] paddle txn create failed:", detail)
+                self._json({"ok": False, "error": "Could not start checkout — try again",
+                            "detail": detail}, 502); return
             txn = data.get("id") or ""
             if not txn.startswith("txn_"):
                 self._json({"ok": False, "error": "Unexpected response from Paddle"}, 502); return
