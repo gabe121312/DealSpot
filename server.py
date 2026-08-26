@@ -149,6 +149,7 @@ AMAZON_TAG = os.environ.get("AMAZON_TAG", "")      # e.g. "dealspot-20"
 EBAY_CAMPID = os.environ.get("EBAY_CAMPID", "")    # eBay Partner Network id
 TIP_URL = os.environ.get("TIP_URL", "")            # e.g. https://ko-fi.com/yourpage
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")   # free @ resend.com
+REFUND_EMAIL = os.environ.get("REFUND_EMAIL", "")      # shown in Billing & Refunds
 DIGEST_FROM = os.environ.get("DIGEST_FROM", "DealSpot <dealspot@resend.dev>")
 
 # ── Deal-title translation (MyMemory, free, no key) ────────────────────
@@ -894,6 +895,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "mode": payload.get("mode") if payload else None,
                 "exp": payload.get("exp") if payload else None,
                 "tipUrl": TIP_URL,
+                "refundEmail": REFUND_EMAIL,
                 "digest": {"subscribers": len(_digest["emails"]),
                            "sending": bool(RESEND_API_KEY)},
             })

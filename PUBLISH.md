@@ -165,6 +165,7 @@ being difficult (ITIN holders, we see you).
 | `EBAY_CAMPID` | Same idea for eBay (eBay Partner Network id) |
 | `TIP_URL` | A "☕ Tip jar" button appears in Settings → About. Point it at your Ko-fi page (free at https://ko-fi.com) |
 | `RESEND_API_KEY` | Turns ON the weekly Top-10 email digest. Sign up free at https://resend.com (just email + password, no tax ID), create an API key, paste it here. Sends every 7 days to everyone subscribed in the app |
+| `REFUND_EMAIL` | Optional: your email — adds an "Email DealSpot support" button to Settings → Premium → Billing & refunds (refunds themselves are one click in Paddle → Transactions) |
 | `MYMEMORY_EMAIL` | Optional but recommended: your email, raises the free translation quota for automatic deal-title translation (24 languages). Translations are cached — each title is only ever translated once per language |
 | `DIGEST_FROM` | Optional custom sender for digest emails, e.g. `DealSpot <hello@yourdomain.com>` (on Resend's free tier you can also leave the default) |
 

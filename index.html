@@ -293,6 +293,33 @@
   .vote-row { display:flex; align-items:center; gap:7px; margin-top:9px; padding-top:8px; border-top:1px dashed var(--border); }
   .vote-q { font-size:11px; color:var(--text2); font-weight:600; margin-right:auto; }
 
+  /* ── Holiday HQ 🎄 ── */
+  .store-tab[data-store="holidays"].active { background:linear-gradient(135deg,#0f766e,#059669); }
+  .holi-hero { position:relative; overflow:hidden; border-radius:18px; padding:18px 16px 14px; background:linear-gradient(150deg,#0f5132,#0f766e 55%,#0891b2); color:#fff; margin-bottom:14px; }
+  .holi-hero .snow { position:absolute; inset:0; pointer-events:none; }
+  .holi-hero .snow span { position:absolute; top:-12px; animation:snowfall linear infinite; opacity:.85; }
+  @keyframes snowfall { 0% { transform:translateY(-10px) translateX(0); } 100% { transform:translateY(230px) translateX(18px); } }
+  .hh-title { font-size:20px; font-weight:900; letter-spacing:.3px; position:relative; }
+  .hh-sub { font-size:12.5px; margin-top:5px; opacity:.92; position:relative; line-height:1.5; }
+  .hh-sub b { color:#fbbf24; }
+  .holi-tools { display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; position:relative; }
+  .holi-chip { padding:8px 13px; border-radius:18px; border:1.5px solid rgba(255,255,255,.45); background:rgba(255,255,255,.12); color:#fff; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .holi-chip.on { background:#fff; color:#065f46; border-color:#fff; }
+  .holi-chip.mega { background:linear-gradient(135deg,#f59e0b,#ef4444); border-color:transparent; }
+  .holi-chip.mega.on { background:linear-gradient(135deg,#dc2626,#991b1b); color:#fff; }
+  .holi-row { display:flex; align-items:center; gap:11px; padding:11px 12px; background:var(--card); border-radius:14px; margin-bottom:9px; text-decoration:none; box-shadow:0 2px 8px rgba(0,0,0,.05); animation:slideUp .3s cubic-bezier(.16,1,.3,1); }
+  .hr-rank { width:24px; height:24px; border-radius:8px; background:linear-gradient(135deg,#0f766e,#0891b2); color:#fff; font-size:12px; font-weight:900; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .holi-row.top1 .hr-rank { background:linear-gradient(135deg,#f59e0b,#ef4444); }
+  .holi-row.top2 .hr-rank { background:linear-gradient(135deg,#9ca3af,#6b7280); }
+  .holi-row.top3 .hr-rank { background:linear-gradient(135deg,#b45309,#92400e); }
+  .hr-img { width:46px; height:46px; border-radius:10px; object-fit:cover; background:var(--card2); flex-shrink:0; }
+  .hr-emoji { width:46px; height:46px; border-radius:10px; background:var(--card2); display:flex; align-items:center; justify-content:center; font-size:24px; flex-shrink:0; }
+  .hr-body { flex:1; min-width:0; }
+  .hr-name { font-size:13px; font-weight:700; color:var(--text); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-height:1.3; }
+  .hr-sub { font-size:11.5px; color:var(--text2); margin-top:2px; }
+  .hr-sub s { opacity:.7; }
+  .hr-pct { padding:6px 10px; border-radius:12px; background:linear-gradient(135deg,#f59e0b,#ef4444); color:#fff; font-size:12.5px; font-weight:900; flex-shrink:0; }
+
   .store-toggles { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
   .store-toggle { display:flex; align-items:center; gap:8px; padding:9px 11px; background:var(--card2); border-radius:10px; font-size:13px; font-weight:600; cursor:pointer; border:1.5px solid transparent; }
   .store-toggle.on { border-color:var(--accent); }
@@ -436,6 +463,7 @@
     <button class="store-tab" data-store="target"><span class="dot" style="background:#CC0000"></span> Target</button>
     <button class="store-tab" data-store="other">🏬 Other</button>
     <button class="store-tab" data-store="watchlist">❤️ Watchlist</button>
+    <button class="store-tab" data-store="holidays">🎄 Holidays</button>
   </div>
 
   <!-- Filter chips -->
@@ -557,6 +585,14 @@
     </div>
   </div>
 
+  <!-- Refunds / billing modal -->
+  <div class="modal-overlay" id="refundModal">
+    <div class="modal whatsnew" style="border-radius:22px">
+      <div class="modal-handle"></div>
+      <div id="refundBody"></div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <!-- First-run onboarding -->
@@ -655,6 +691,7 @@ const DEFAULT_SETTINGS = {
   notifKeywords: [],
   notifStores: ["amazon","walmart","samsclub","bestbuy","target"],
   notifMinDiscount: 0,
+  holidayAlerts: false,
 };
 let settings = Object.assign({}, DEFAULT_SETTINGS, JSON.parse(localStorage.getItem("ds_settings") || "{}"));
 
@@ -806,6 +843,23 @@ function premiumModeLabel() {
 }
 function openPremium() { showPremiumModal(false); }
 function closePremiumModal() { document.getElementById("premiumModal").classList.remove("open"); }
+function openRefunds(){
+  if (document.getElementById("settingsOverlay").classList.contains("open")) closeSettings();
+  const ref = premium.session || "";
+  document.getElementById("refundBody").innerHTML = `
+    <div style="text-align:center;font-size:44px;margin-bottom:6px">💳</div>
+    <h3 style="text-align:center;margin-bottom:6px">Billing & Refunds</h3>
+    <div class="row-sub" style="text-align:center;margin-bottom:12px">Not happy with Premium? No hoops, no hard feelings — refunds are quick.</div>
+    <div class="prem-active" style="margin-bottom:14px">
+      <div class="prem-feat"><span class="fi">🧾</span><span>Your purchase reference<small>${ref ? escapeHtml(ref) : "Found in your receipt email from Paddle"}</small></span></div>
+      <div class="prem-feat"><span class="fi">⏱️</span><span>Refunds are processed by Paddle<small>Our payment partner — usually done within a day or two</small></span></div>
+    </div>
+    <a class="btn btn-primary btn-block" style="text-decoration:none;text-align:center" href="https://paddle.net" target="_blank" rel="noopener">Open Paddle support (fastest)</a>
+    ${premiumCfg.refundEmail ? `<a class="btn btn-ghost btn-block" style="text-decoration:none;text-align:center" href="mailto:${escapeHtml(premiumCfg.refundEmail)}?subject=${encodeURIComponent("DealSpot refund request " + ref)}">Email DealSpot support</a>` : ""}
+    <div class="modal-actions" style="padding:0;margin-top:10px"><button class="btn btn-cancel" style="flex:1" onclick="closeRefunds()">Close</button></div>`;
+  document.getElementById("refundModal").classList.add("open");
+}
+function closeRefunds(){ document.getElementById("refundModal").classList.remove("open"); }
 function _planAmount(label) {
   const m = (label || "").replace(/,/g, "").match(/\$?\s*(\d+(?:\.\d{1,2})?)/);
   return m ? parseFloat(m[1]) : null;
@@ -1135,6 +1189,7 @@ function render() {
     document.getElementById("content").innerHTML = `<div class="section-title"><h2>Loading…</h2></div>` + skeletonHTML();
     return;
   }
+  if (currentStore === "holidays") { renderHolidays(); return; }
   const list = getFiltered();
   const el = document.getElementById("content");
   const total = allDeals().filter(d => !settings.hiddenStores.includes(d.store)).length;
@@ -1219,6 +1274,94 @@ function render() {
 function timeAgo(ts) {
   const s = Math.floor((Date.now()-ts)/1000);
   if (s<60) return "just now"; if (s<3600) return Math.floor(s/60)+"m ago"; return Math.floor(s/3600)+"h ago";
+}
+
+// ── Holiday HQ 🎄 ──────────────────────────────────────────────
+let holidayPrice = 0; // 0 = any price
+function nextBlackFriday(){
+  const now = new Date();
+  for (let y = now.getFullYear(); ; y++) {
+    const nov1 = new Date(y, 10, 1);
+    const firstThu = 1 + ((4 - nov1.getDay() + 7) % 7);
+    const bf = new Date(y, 10, firstThu + 21); // 4th Thursday of November
+    if (bf > now) return bf;
+  }
+}
+function nextDate(month, day){
+  const now = new Date();
+  let d = new Date(now.getFullYear(), month, day);
+  if (d < now) d = new Date(now.getFullYear() + 1, month, day);
+  return d;
+}
+function daysUntil(d){ return Math.max(0, Math.ceil((d - new Date()) / 86400000)); }
+function snowHtml(){
+  let out = "";
+  for (let i = 0; i < 14; i++) {
+    const left = (Math.random() * 100).toFixed(1);
+    const dur = (4 + Math.random() * 5).toFixed(1);
+    const delay = (Math.random() * 6).toFixed(1);
+    const size = 9 + Math.floor(Math.random() * 9);
+    out += `<span style="left:${left}%;animation-duration:${dur}s;animation-delay:${delay}s;font-size:${size}px">❄️</span>`;
+  }
+  return out;
+}
+function holiRow(d, i){
+  const label = d.storeLabel || STORE_LABELS[d.store] || "Store";
+  const img = d.img
+    ? `<img class="hr-img" src="${d.img}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+    : `<div class="hr-emoji">${d.emoji || "🛍️"}</div>`;
+  return `<a class="holi-row top${i + 1}" href="${dealHref(d)}" target="_blank" rel="noopener noreferrer">
+    <span class="hr-rank">${i + 1}</span>${img}
+    <div class="hr-body">
+      <div class="hr-name">${d.name.replace(/"/g, "&quot;")}</div>
+      <div class="hr-sub">${label} · <b>$${d.sale.toFixed(2)}</b> <s>$${d.orig.toFixed(2)}</s></div>
+    </div>
+    <span class="hr-pct">-${pct(d)}%</span>
+  </a>`;
+}
+function renderHolidays(){
+  const el = document.getElementById("content");
+  const bf = nextBlackFriday();
+  const cm = new Date(bf.getTime() + 4 * 86400000);
+  const xmas = nextDate(11, 25);
+  const ranked = allDeals()
+    .filter(d => d.sale && d.orig && d.orig > d.sale)
+    .filter(d => !holidayPrice || d.sale <= holidayPrice)
+    .sort((a, b) => pct(b) - pct(a)).slice(0, 20);
+  const megaOn = !!settings.holidayAlerts;
+  el.innerHTML = `
+    <div class="holi-hero">
+      <div class="snow">${snowHtml()}</div>
+      <div class="hh-title">🎄 Holiday Deal HQ</div>
+      <div class="hh-sub">Black Friday in <b>${daysUntil(bf)} days</b> · Cyber Monday in <b>${daysUntil(cm)} days</b><br>🎅 Christmas in <b>${daysUntil(xmas)} days</b></div>
+      <div class="holi-tools">
+        <button class="holi-chip ${!holidayPrice ? "on" : ""}" onclick="setHolidayPrice(0)">Any price</button>
+        <button class="holi-chip ${holidayPrice === 25 ? "on" : ""}" onclick="setHolidayPrice(25)">🎁 Under $25</button>
+        <button class="holi-chip ${holidayPrice === 50 ? "on" : ""}" onclick="setHolidayPrice(50)">🎁 Under $50</button>
+        <button class="holi-chip ${holidayPrice === 100 ? "on" : ""}" onclick="setHolidayPrice(100)">🎁 Under $100</button>
+        <button class="holi-chip mega ${megaOn ? "on" : ""}" onclick="toggleMegaAlerts()">${megaOn ? "🔥 Mega alerts ON" : "🔔 Mega-deal alerts 70%+"}</button>
+      </div>
+    </div>
+    <div class="section-title"><h2>🏆 Top ${ranked.length} Deals Right Now</h2><span>live</span></div>` +
+    (ranked.length
+      ? ranked.map((d, i) => holiRow(d, i)).join("")
+      : `<div class="empty"><div class="empty-icon">🎁</div><h3>No deals under $${holidayPrice} right now</h3><p>Try a higher gift budget or check back soon.</p></div>`);
+  updateCrownBtn();
+}
+function setHolidayPrice(v){ holidayPrice = v; renderHolidays(); }
+function toggleMegaAlerts(){
+  settings.holidayAlerts = !settings.holidayAlerts;
+  if (settings.holidayAlerts) {
+    settings.notifEnabled = true;
+    if ((settings.notifMinDiscount || 0) < 70) settings.notifMinDiscount = 70;
+    saveSettings(); syncPushPrefs();
+    if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
+    showToast("🔥 Mega-deal alerts ON — 70%+ only");
+  } else {
+    saveSettings();
+    showToast("Mega-deal alerts off");
+  }
+  renderHolidays();
 }
 function findDeal(id) { return allDeals().find(d => String(d.id) === String(id)); }
 
@@ -1347,6 +1490,7 @@ function renderSettings() {
         </div>
         ${premiumCfg.manageUrl ? `<a class="btn btn-ghost btn-block" style="margin-top:10px;text-decoration:none;text-align:center" href="${premiumCfg.manageUrl}" target="_blank" rel="noopener">Manage subscription</a>` : ""}
         <button class="btn btn-ghost btn-block" style="margin-top:${premiumCfg.manageUrl?0:10}px" onclick="openPremium()">View my benefits</button>
+        <button class="btn btn-ghost btn-block" onclick="openRefunds()">💳 Billing & refunds</button>
       </div>
     </div>` : `
     <div class="group-title">⚡ Premium</div>
@@ -1933,8 +2077,10 @@ if ("serviceWorker" in navigator) {
 }
 
 // ── "What's new" on update ─────────────────────────────────────
-const APP_VERSION = "3.4.3";
+const APP_VERSION = "3.5.0";
 const CHANGELOG = [
+  { ic:"🎄", t:"Holiday Deal HQ", d:"A festive new tab with live Black Friday, Cyber Monday and Christmas countdowns, Top-20 deal rankings, gift budgets (under $25/$50/$100) and one-tap mega-deal alerts for 70%+ drops. Santa approves." },
+  { ic:"💳", t:"Refunds made friendly", d:"Premium members can now open Billing & Refunds from Settings to get their purchase reference and reach Paddle support in one tap." },
   { ic:"👈", t:"Swipe between tabs", d:"Glide left or right to move between Deals, Watchlist, Alerts and Settings — like flipping pages. At the ends it stops: Deals only swipes one way, Settings the other." },
   { ic:"🌍", t:"DealSpot speaks 24 languages", d:"Pick your language in Settings → Appearance → Language: Español, Français, Deutsch, 中文, العربية, हिन्दी, 한국어, Português, Русский, Türkçe and more. Deal titles translate automatically too, and the layout stays identical in every language." },
   { ic:"🔔", t:"Alerts, fixed & more reliable", d:"A missing In-app alerts switch is back in Settings → Notifications, and alerts now use the same system as lock-screen push — so they actually appear on Android and installed apps." },
