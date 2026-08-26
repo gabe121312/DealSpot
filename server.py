@@ -1121,8 +1121,11 @@ class Handler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body.encode())
             return
-        if p.path in ("/checkout", "/checkout.html"):
-            self.path = "/checkout.html"
+        pretty = {"/checkout": "/checkout.html", "/checkout.html": "/checkout.html",
+                  "/pricing": "/pricing.html", "/terms": "/terms.html",
+                  "/privacy": "/privacy.html", "/refunds": "/refunds.html"}
+        if p.path in pretty:
+            self.path = pretty[p.path]
             return super().do_GET()
         if p.path == "/healthz":
             # Lightweight uptime endpoint (for external pingers / uptime monitors)
