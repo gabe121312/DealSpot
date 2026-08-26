@@ -848,16 +848,30 @@ function openRefunds(){
   const ref = premium.session || "";
   document.getElementById("refundBody").innerHTML = `
     <div style="text-align:center;font-size:44px;margin-bottom:6px">💳</div>
-    <h3 style="text-align:center;margin-bottom:6px">Billing & Refunds</h3>
-    <div class="row-sub" style="text-align:center;margin-bottom:12px">Not happy with Premium? No hoops, no hard feelings — refunds are quick.</div>
-    <div class="prem-active" style="margin-bottom:14px">
-      <div class="prem-feat"><span class="fi">🧾</span><span>Your purchase reference<small>${ref ? escapeHtml(ref) : "Found in your receipt email from Paddle"}</small></span></div>
-      <div class="prem-feat"><span class="fi">⏱️</span><span>Refunds are processed by Paddle<small>Our payment partner — usually done within a day or two</small></span></div>
+    <h3 style="text-align:center;margin-bottom:4px">Billing & Refunds</h3>
+    <div class="row-sub" style="text-align:center;margin-bottom:14px">Not happy with Premium? No hoops, no hard feelings.</div>
+    <div style="font-size:11px;font-weight:800;letter-spacing:.6px;color:var(--text2);margin-bottom:6px">🧾 YOUR PURCHASE REFERENCE</div>
+    ${ref ? `
+    <div style="display:flex;align-items:center;gap:8px;background:var(--card2);border:1.5px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:16px">
+      <span style="flex:1;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--text);word-break:break-all">${escapeHtml(ref)}</span>
+      <button class="btn btn-ghost" style="padding:8px 12px;flex:none" onclick="copyRef('${escapeHtml(ref)}')">📋 Copy</button>
+    </div>` : `
+    <div class="row-sub" style="margin-bottom:16px;line-height:1.5">No purchase found on this device. Check your receipt email from Paddle — it contains your reference code.</div>`}
+    <div style="font-size:11px;font-weight:800;letter-spacing:.6px;color:var(--text2);margin-bottom:6px">HOW REFUNDS WORK</div>
+    <div class="prem-active" style="margin-bottom:14px;padding:12px">
+      <div class="prem-feat" style="margin-top:0"><span class="fi">1️⃣</span><span>Tap "Open Paddle support" below<small>Fastest route — Paddle handles refunds directly</small></span></div>
+      <div class="prem-feat"><span class="fi">2️⃣</span><span>Paste your reference code when asked<small>The copy button above makes this easy</small></span></div>
+      <div class="prem-feat"><span class="fi">⏱️</span><span>Money back, usually within 1–2 days<small>Returned to the same card you paid with</small></span></div>
     </div>
     <a class="btn btn-primary btn-block" style="text-decoration:none;text-align:center" href="https://paddle.net" target="_blank" rel="noopener">Open Paddle support (fastest)</a>
-    ${premiumCfg.refundEmail ? `<a class="btn btn-ghost btn-block" style="text-decoration:none;text-align:center" href="mailto:${escapeHtml(premiumCfg.refundEmail)}?subject=${encodeURIComponent("DealSpot refund request " + ref)}">Email DealSpot support</a>` : ""}
+    ${premiumCfg.refundEmail ? `<a class="btn btn-ghost btn-block" style="text-decoration:none;text-align:center" href="mailto:${escapeHtml(premiumCfg.refundEmail)}?subject=${encodeURIComponent("DealSpot refund request " + ref)}&body=${encodeURIComponent("Hi! I'd like a refund. My purchase reference: " + (ref || "(see my Paddle receipt email)"))}">📧 Email DealSpot support</a>` : ""}
     <div class="modal-actions" style="padding:0;margin-top:10px"><button class="btn btn-cancel" style="flex:1" onclick="closeRefunds()">Close</button></div>`;
   document.getElementById("refundModal").classList.add("open");
+}
+function copyRef(ref){
+  const done = () => showToast("Reference copied 📋");
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ref).then(done).catch(() => showToast(ref));
+  else showToast(ref);
 }
 function closeRefunds(){ document.getElementById("refundModal").classList.remove("open"); }
 function _planAmount(label) {
