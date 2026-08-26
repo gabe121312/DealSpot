@@ -1308,6 +1308,8 @@ function render() {
   if (list.length === 0) {
     el.innerHTML = teaserHtml + `<div class="empty"><div class="empty-icon">${currentStore==="watchlist"?"💔":"🔍"}</div><h3>${currentStore==="watchlist"?"Your watchlist is empty":"No deals found"}</h3><p>${currentStore==="watchlist"?"Tap the heart on any deal to save it here.":"Try adjusting your filters or search terms."}</p></div>`;
     startTeaserCountdown();
+    applyI18n(el);
+    updateCrownBtn();
     return;
   }
   el.innerHTML = `<div class="section-title"><h2>${titleText}</h2><span>${TF("nItems", list.length)}</span></div>` +
@@ -1428,20 +1430,21 @@ function renderHolidays(){
   el.innerHTML = `
     <div class="holi-hero">
       <div class="snow">${snowHtml()}</div>
-      <div class="hh-title">🎄 Holiday Deal HQ</div>
+      <div class="hh-title">🎄 ${T("Holiday Deal HQ")}</div>
       <div class="hh-sub">Black Friday in <b>${daysUntil(bf)} days</b> · Cyber Monday in <b>${daysUntil(cm)} days</b><br>🎅 Christmas in <b>${daysUntil(xmas)} days</b></div>
       <div class="holi-tools">
-        <button class="holi-chip ${!holidayPrice ? "on" : ""}" onclick="setHolidayPrice(0)">Any price</button>
-        <button class="holi-chip ${holidayPrice === 25 ? "on" : ""}" onclick="setHolidayPrice(25)">🎁 Under $25</button>
-        <button class="holi-chip ${holidayPrice === 50 ? "on" : ""}" onclick="setHolidayPrice(50)">🎁 Under $50</button>
-        <button class="holi-chip ${holidayPrice === 100 ? "on" : ""}" onclick="setHolidayPrice(100)">🎁 Under $100</button>
-        <button class="holi-chip mega ${megaOn ? "on" : ""}" onclick="toggleMegaAlerts()">${megaOn ? "🔥 Mega alerts ON" : "🔔 Mega-deal alerts 70%+"}</button>
+        <button class="holi-chip ${!holidayPrice ? "on" : ""}" onclick="setHolidayPrice(0)">${T("Any price")}</button>
+        <button class="holi-chip ${holidayPrice === 25 ? "on" : ""}" onclick="setHolidayPrice(25)">${TF("holiUnder","$25")}</button>
+        <button class="holi-chip ${holidayPrice === 50 ? "on" : ""}" onclick="setHolidayPrice(50)">${TF("holiUnder","$50")}</button>
+        <button class="holi-chip ${holidayPrice === 100 ? "on" : ""}" onclick="setHolidayPrice(100)">${TF("holiUnder","$100")}</button>
+        <button class="holi-chip mega ${megaOn ? "on" : ""}" onclick="toggleMegaAlerts()">${megaOn ? T("🔥 Mega alerts ON") : T("🔔 Mega-deal alerts 70%+")}</button>
       </div>
     </div>
-    <div class="section-title"><h2>🏆 Top ${ranked.length} Deals Right Now</h2><span>live</span></div>` +
+    <div class="section-title"><h2>🏆 ${TF("holiTop", ranked.length)}</h2><span>${T("live")}</span></div>` +
     (ranked.length
       ? ranked.map((d, i) => holiRow(d, i)).join("")
-      : `<div class="empty"><div class="empty-icon">🎁</div><h3>No deals under $${holidayPrice} right now</h3><p>Try a higher gift budget or check back soon.</p></div>`);
+      : `<div class="empty"><div class="empty-icon">🎁</div><h3>${TF("holiNone", "$" + holidayPrice)}</h3><p>${T("Try a higher gift budget or check back soon.")}</p></div>`);
+  applyI18n(el);
   updateCrownBtn();
 }
 function setHolidayPrice(v){ holidayPrice = v; renderHolidays(); }
@@ -1628,7 +1631,7 @@ function renderSettings() {
       ${(premiumCfg.paddle && premiumCfg.paddle.coffeePrice) ? `
       <a class="coffee-row" href="/checkout?plan=coffee" target="_blank" rel="noopener">
         <span class="cr-icon">☕</span>
-        <span class="cr-body">Buy Gabe a coffee<small>Support the guy behind DealSpot — $4, one time</small></span>
+        <span class="cr-body">${T("Buy Gabe a coffee")}<small>${T("Support the guy behind DealSpot — $4, one time")}</small></span>
         <span class="cr-go">→</span>
       </a>` : ""}
     </div>
