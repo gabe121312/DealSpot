@@ -902,6 +902,30 @@ class Handler(SimpleHTTPRequestHandler):
             self._json({"publicKey": VAPID_PUBLIC, "pushEnabled": HAS_PUSH,
                         "subscribers": len(_subs)})
             return
+        if p.path == "/api/premium/checkout-session":
+            # Create a draft Paddle transaction server-side so we KNOW the
+            # txn_ id before checkout opens (Paddle's JS event only gives a
+            # checkout id, which can't be verified).
+            qs = parse_qs(p.query)
+            plan = qs.get("plan", ["monthly"])[0]
+            price = PADDLE_PRICE_YEARLY if (plan == "yearly" and PADDLE_PRICE_YEARLY) else PADDLE_PRICE_MONTHLY
+            if not PADDLE_API_KEY or not price:
+                self._json({"ok": False, "error": "Paddle payments not configured yet"}, 503); return
+            body = json.dumps({"items": [{"price_id": price, "quantity": 1}]}).encode()
+            req = Request(_paddle_base() + "/transactions", data=body, method="POST",
+                          headers={"Authorization": "Bearer " + PADDLE_API_KEY,
+                                   "Content-Type": "application/json", "User-Agent": UA})
+            try:
+                with urlopen(req, timeout=12) as r:
+                    data = (json.load(r) or {}).get("data") or {}
+            except Exception as e:
+                print("[premium] paddle txn create failed:", e)
+                self._json({"ok": False, "error": "Could not start checkout — try again"}, 502); return
+            txn = data.get("id") or ""
+            if not txn.startswith("txn_"):
+                self._json({"ok": False, "error": "Unexpected response from Paddle"}, 502); return
+            self._json({"ok": True, "txn": txn})
+            return
         if p.path in ("/checkout", "/checkout.html"):
             self.path = "/checkout.html"
             return super().do_GET()
@@ -993,7 +1017,7 @@ class Handler(SimpleHTTPRequestHandler):
                 except Exception as e:
                     print("[premium] paddle verify failed:", e)
                     self._json({"ok": False, "error": "Could not verify that payment — try again"}, 502); return
-                if txn.get("status") not in ("completed", "paid", "ready"):
+                if txn.get("status") != "completed":
                     self._json({"ok": False, "error": "Payment not completed yet"}, 402); return
                 mode = "subscription" if txn.get("subscription_id") else "payment"
                 email = ((txn.get("customer") or {}).get("email")) or ""

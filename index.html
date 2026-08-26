@@ -775,12 +775,12 @@ async function activatePremium(sessionId, silent) {
   return false;
 }
 async function initPremium() {
-  // 1) Coming back from Stripe payment → session_id is in the URL
+  // 1) Coming back from a payment → session_id is in the URL
   const p = new URLSearchParams(location.search);
   const sid = p.get("session_id");
   if (sid) {
     try { history.replaceState(null, "", location.pathname); } catch(e) {}
-    await activatePremium(sid, false);
+    if (/^(txn_|cs_)/.test(sid)) await activatePremium(sid, false);
     return;
   }
   // 2) Check config + existing membership
@@ -794,7 +794,10 @@ async function initPremium() {
   if (premium.active) { try { localStorage.removeItem("ds_pending_txn"); } catch(e) {} return; }
   // Recover a payment that couldn't be verified earlier (server was asleep, etc.)
   const pending = localStorage.getItem("ds_pending_txn");
-  if (pending) await activatePremium(pending, true);
+  if (pending) {
+    if (/^(txn_|cs_)/.test(pending)) await activatePremium(pending, true);
+    else { try { localStorage.removeItem("ds_pending_txn"); } catch(e) {} }
+  }
 }
 function premiumModeLabel() {
   if (premium.mode === "subscription") return "Monthly member";

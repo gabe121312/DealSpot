@@ -63,25 +63,32 @@
       .then(function (cfg) {
         var p = cfg.paddle;
         if (!p || !p.enabled) return fail("Payments aren't configured yet. Please try again later.");
-        var priceId = plan === "yearly" ? (p.yearlyPrice || p.monthlyPrice) : p.monthlyPrice;
-        if (!priceId) return fail("Couldn't find that plan. Please go back and try again.");
         if (p.env === "sandbox") { try { Paddle.Environment.set("sandbox"); } catch (e) {} }
         Paddle.Initialize({
           token: p.clientToken,
           eventCallback: function (ev) {
-            if (ev.name === "checkout.completed" && ev.data && ev.data.id) {
+            if (ev.name === "checkout.completed" && window.__txnId) {
               pill.textContent = "👑 Payment successful!";
               document.getElementById("spin").style.display = "none";
               setTimeout(function () {
-                window.location.href = "/?session_id=" + encodeURIComponent(ev.data.id);
+                window.location.href = "/?session_id=" + encodeURIComponent(window.__txnId);
               }, 1200);
             }
           }
         });
-        Paddle.Checkout.open({
-          items: [{ priceId: priceId, quantity: 1 }],
-          settings: { theme: "light", locale: "en" }
-        });
+        // Ask OUR server to create the payment intent — it knows the real
+        // transaction id (txn_…), unlike the checkout event (che_…).
+        fetch("/api/premium/checkout-session?plan=" + encodeURIComponent(plan), { cache: "no-store" })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            if (!d.ok || !d.txn) return fail(d.error || "Couldn't start checkout. Go back and try again.");
+            window.__txnId = d.txn;
+            Paddle.Checkout.open({
+              transactionId: d.txn,
+              settings: { theme: "light", locale: "en" }
+            });
+          })
+          .catch(function () { fail("Couldn't start checkout. Check your connection and try again."); });
       })
       .catch(function () { fail("Couldn't reach the payment server. Check your connection and try again."); });
   })();
