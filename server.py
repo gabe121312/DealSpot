@@ -150,6 +150,12 @@ EBAY_CAMPID = os.environ.get("EBAY_CAMPID", "")    # eBay Partner Network id
 TIP_URL = os.environ.get("TIP_URL", "")            # e.g. https://ko-fi.com/yourpage
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")   # free @ resend.com
 REFUND_EMAIL = os.environ.get("REFUND_EMAIL", "")      # shown in Billing & Refunds
+STATS_KEY = os.environ.get("STATS_KEY", "")             # secret word to open /panel
+
+# ── Owner stats (anonymous counts only) ─────────────────────────────────
+STATS_FILE = os.path.join(HERE, "stats.json")
+_stats = {}      # "YYYY-MM-DD" -> {loads, vids[], premium_views, check_m, check_y, purchases, stores{}}
+_stats_lock = threading.Lock()
 DIGEST_FROM = os.environ.get("DIGEST_FROM", "DealSpot <dealspot@resend.dev>")
 
 # ── Deal-title translation (MyMemory, free, no key) ────────────────────
@@ -257,6 +263,99 @@ def _paddle_base():
     return "https://sandbox-api.paddle.com" if PADDLE_ENV == "sandbox" else "https://api.paddle.com"
 
 
+def _panel_style():
+    return """<style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+    body{background:#0e0e16;color:#f2f2f7;padding:24px;max-width:760px;margin:auto}
+    h1{font-size:22px;margin-bottom:2px} .sub{color:#9ca3af;font-size:13px;margin-bottom:20px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:22px}
+    .card{background:#1a1a27;border-radius:14px;padding:14px}
+    .k{font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.6px}
+    .v{font-size:26px;font-weight:900;margin-top:4px}
+    .gold{color:#ffc400} .green{color:#34d399} .purple{color:#a78bfa}
+    h2{font-size:15px;margin:18px 0 10px;color:#e5e7eb}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    td,th{padding:7px 6px;border-bottom:1px solid #2d2d40;text-align:left}
+    th{color:#9ca3af;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+    .bar{height:8px;border-radius:4px;background:linear-gradient(90deg,#6c5ce7,#a855f7)}
+    .funnel{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+    .fstep{flex:1;min-width:120px;background:#1a1a27;border-radius:12px;padding:10px;text-align:center}
+    .fs-v{font-size:20px;font-weight:900} .fs-k{font-size:10.5px;color:#9ca3af;margin-top:2px}
+    .note{color:#6b7280;font-size:12px;margin-top:24px;line-height:1.5}
+    </style>"""
+
+
+def _panel_locked():
+    return ("<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>"
+            + _panel_style() + "</head><body><h1>📊 DealSpot Panel</h1>"
+            "<div class='sub'>Locked.</div><div class='card'>Set the <b>STATS_KEY</b> environment variable "
+            "in Render, then open <code>/panel?key=YOUR-KEY</code>.</div></body></html>")
+
+
+def _panel_html(key):
+    with _stats_lock:
+        days = dict(_stats)
+    today = time.strftime("%Y-%m-%d")
+    yest = time.strftime("%Y-%m-%d", time.localtime(time.time() - 86400))
+    last7 = sorted(days.keys())[-7:]
+
+    def day(d):
+        return days.get(d) or {"loads": 0, "vids": [], "premium_views": 0, "check_m": 0, "check_y": 0, "purchases": 0, "stores": {}}
+
+    def agg(dlist):
+        t = {"loads": 0, "uniques": 0, "premium_views": 0, "checkouts": 0, "purchases": 0, "stores": {}}
+        for dl in dlist:
+            d = day(dl)
+            t["loads"] += d.get("loads", 0)
+            t["premium_views"] += d.get("premium_views", 0)
+            t["checkouts"] += d.get("check_m", 0) + d.get("check_y", 0)
+            t["purchases"] += d.get("purchases", 0)
+            for st, n in d.get("stores", {}).items():
+                t["stores"][st] = t["stores"].get(st, 0) + n
+        return t
+
+    t7 = agg(last7)
+    all_stores = agg(sorted(days.keys()))["stores"]
+    top = sorted(all_stores.items(), key=lambda x: -x[1])[:8]
+    mx = top[0][1] if top else 1
+    rows7 = ""
+    for dl in reversed(last7):
+        d = day(dl)
+        rows7 += (f"<tr><td>{dl}</td><td>{d.get('loads',0)}</td><td>{len(d.get('vids',[]))}</td>"
+                  f"<td>{d.get('premium_views',0)}</td><td>{d.get('check_m',0)+d.get('check_y',0)}</td>"
+                  f"<td>{d.get('purchases',0)}</td></tr>")
+    bars = "".join(f"<tr><td style='width:110px'>{STORE_LABELS.get(st, st)}</td>"
+                   f"<td><div class='bar' style='width:{int(n/mx*100)}%'></div></td>"
+                   f"<td style='text-align:right;width:46px'><b>{n}</b></td></tr>" for st, n in top) or "<tr><td colspan=3>No store taps yet</td></tr>"
+    conv = (lambda a, b: f"{(100*a/b):.0f}%" if b else "—")
+    html = ("<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width,initial-scale'>"
+            "<meta name='robots' content='noindex'>" + _panel_style() + "</head><body>"
+            "<h1>📊 DealSpot Owner Panel</h1>"
+            f"<div class='sub'>Live since day one · today is {today}</div>"
+            "<div class='grid'>"
+            f"<div class='card'><div class='k'>Today · app opens</div><div class='v'>{day(today).get('loads',0)}</div></div>"
+            f"<div class='card'><div class='k'>Today · unique visitors</div><div class='v purple'>{len(day(today).get('vids',[]))}</div></div>"
+            f"<div class='card'><div class='k'>Yesterday opens</div><div class='v'>{day(yest).get('loads',0)}</div></div>"
+            f"<div class='card'><div class='k'>7-day opens</div><div class='v'>{t7['loads']}</div></div>"
+            f"<div class='card'><div class='k'>Purchases (all-time)</div><div class='v gold'>{agg(sorted(days.keys()))['purchases']}</div></div>"
+            "</div>"
+            "<h2>🔴 The funnel (last 7 days)</h2>"
+            "<div class='funnel'>"
+            f"<div class='fstep'><div class='fs-v'>{t7['loads']}</div><div class='fs-k'>App opens</div></div>"
+            f"<div class='fstep'><div class='fs-v'>{t7['premium_views']}</div><div class='fs-k'>Premium views ({conv(t7['premium_views'], t7['loads'])})</div></div>"
+            f"<div class='fstep'><div class='fs-v'>{t7['checkouts']}</div><div class='fs-k'>Checkouts started ({conv(t7['checkouts'], t7['premium_views'])})</div></div>"
+            f"<div class='fstep'><div class='fs-v gold'>{t7['purchases']}</div><div class='fs-k'>Purchases ({conv(t7['purchases'], t7['checkouts'])})</div></div>"
+            "</div>"
+            "<h2>📅 Last 7 days</h2>"
+            "<table><tr><th>Day</th><th>Opens</th><th>Uniques</th><th>Premium views</th><th>Checkouts</th><th>Sales</th></tr>"
+            + rows7 + "</table>"
+            "<h2>🏬 Most-tapped stores (all-time)</h2>"
+            "<table>" + bars + "</table>"
+            "<div class='note'>All numbers are anonymous counts — no personal data is stored. "
+            "Stats reset if the free-tier server restarts (last 60 days kept while awake).</div>"
+            "</body></html>")
+    return html
+
 def paddle_get_transaction(txn_id):
     """Ask Paddle whether this transaction (txn_…) is really completed."""
     req = Request(
@@ -329,6 +428,73 @@ def save_translations():
         os.replace(tmp, TRANSLATIONS_FILE)
     except Exception as e:
         print("[i18n] could not save:", e)
+
+
+def load_stats():
+    try:
+        with open(STATS_FILE) as f:
+            _stats.update(json.load(f))
+    except Exception:
+        pass
+
+
+def save_stats():
+    try:
+        tmp = STATS_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(_stats, f)
+        os.replace(tmp, STATS_FILE)
+    except Exception as e:
+        print("[stats] save failed:", e)
+
+
+def _stat_day():
+    day = time.strftime("%Y-%m-%d")
+    with _stats_lock:
+        if day not in _stats:
+            for k in [k for k in sorted(_stats)[:-60]]:
+                _stats.pop(k, None)  # keep 60 days
+            _stats.setdefault(day, {"loads": 0, "vids": [], "premium_views": 0,
+                                    "check_m": 0, "check_y": 0, "purchases": 0, "stores": {}})
+        return day, _stats[day]
+
+
+def stat_record_load(vid):
+    day, d = _stat_day()
+    with _stats_lock:
+        d["loads"] += 1
+        if vid and vid not in d["vids"]:
+            d["vids"].append(vid)
+            if len(d["vids"]) > 5000:
+                d["vids"] = d["vids"][-5000:]
+        save_stats()
+
+
+def stat_event(t, store=""):
+    day, d = _stat_day()
+    with _stats_lock:
+        if t == "premium_view":
+            d["premium_views"] += 1
+        elif t == "deal_open" and store:
+            d["stores"][store] = d["stores"].get(store, 0) + 1
+        save_stats()
+
+
+def stat_checkout(plan):
+    day, d = _stat_day()
+    with _stats_lock:
+        if plan == "yearly":
+            d["check_y"] += 1
+        else:
+            d["check_m"] += 1
+        save_stats()
+
+
+def stat_purchase():
+    day, d = _stat_day()
+    with _stats_lock:
+        d["purchases"] += 1
+        save_stats()
 
 
 def _mymemory_translate(text, lang):
@@ -841,6 +1007,10 @@ class Handler(SimpleHTTPRequestHandler):
                 lang = (qs.get("lang") or [""])[0]
                 if lang in SUPPORTED_LANGS:
                     deals = translate_deal_names(deals, lang)
+                try:
+                    stat_record_load((qs.get("vid") or [""])[0][:24])
+                except Exception:
+                    pass
                 out = {"deals": deals, "count": len(deals),
                        "updated": int(_cache["ts"] * 1000),
                        "source": "Slickdeals live RSS", "premium": bool(payload)}
@@ -935,7 +1105,21 @@ class Handler(SimpleHTTPRequestHandler):
             txn = data.get("id") or ""
             if not txn.startswith("txn_"):
                 self._json({"ok": False, "error": "Unexpected response from Paddle"}, 502); return
+            try:
+                stat_checkout(plan)
+            except Exception:
+                pass
             self._json({"ok": True, "txn": txn})
+            return
+        if p.path == "/panel":
+            qs = parse_qs(p.query)
+            key = (qs.get("key") or [""])[0]
+            body = _panel_html(key) if (STATS_KEY and key == STATS_KEY) else _panel_locked()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body.encode())
             return
         if p.path in ("/checkout", "/checkout.html"):
             self.path = "/checkout.html"
@@ -956,6 +1140,21 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         p = urlparse(self.path)
+        if p.path == "/api/stats/e":
+            length = int(self.headers.get("Content-Length", 0))
+            try:
+                data = json.loads(self.rfile.read(length) or b"{}")
+            except Exception:
+                self._json({"ok": True}); return
+            t = str(data.get("t", ""))[:20]
+            store = re.sub(r"[^a-z]", "", str(data.get("store", "")).lower())[:12]
+            if t in ("premium_view", "deal_open"):
+                try:
+                    stat_event(t, store)
+                except Exception:
+                    pass
+            self._json({"ok": True})
+            return
         if p.path in ("/api/deals/vote", "/api/digest/subscribe", "/api/digest/unsubscribe", "/api/digest/send-test"):
             length = int(self.headers.get("Content-Length", 0))
             try:
@@ -1033,6 +1232,10 @@ class Handler(SimpleHTTPRequestHandler):
                 mode = "subscription" if txn.get("subscription_id") else "payment"
                 email = ((txn.get("customer") or {}).get("email")) or ""
                 token = make_premium_token("paddle:" + sid, mode)
+                try:
+                    stat_purchase()
+                except Exception:
+                    pass
                 print("[premium] PADDLE activated:", mode, "·", email or "(no email)")
                 self._json({"ok": True, "token": token, "mode": mode, "email": email})
                 return
@@ -1087,6 +1290,7 @@ if __name__ == "__main__":
     load_votes()
     load_digest()
     load_translations()
+    load_stats()
     print(f"DealSpot running at http://0.0.0.0:{PORT}")
     print(f"[push] available: {HAS_PUSH} | subscribers: {len(_subs)} | "
           f"public key: {VAPID_PUBLIC[:16]}…")
