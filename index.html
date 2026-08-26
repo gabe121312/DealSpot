@@ -294,6 +294,17 @@
   .vote-row { display:flex; align-items:center; gap:7px; margin-top:9px; padding-top:8px; border-top:1px dashed var(--border); }
   .vote-q { font-size:11px; color:var(--text2); font-weight:600; margin-right:auto; }
 
+  /* ── Coffee row ☕ ── */
+  .coffee-row { display:flex; align-items:center; gap:11px; width:100%; margin-top:10px; text-decoration:none;
+    background:linear-gradient(135deg,rgba(255,193,7,.14),rgba(255,106,0,.09));
+    border:1.5px solid rgba(255,180,0,.45); border-radius:13px; padding:11px 13px; cursor:pointer; }
+  .coffee-row:active { transform:scale(.98); }
+  .cr-icon { font-size:22px; line-height:1; flex-shrink:0; }
+  .cr-body { flex:1; min-width:0; font-size:13.5px; font-weight:800; color:var(--text); }
+  .cr-body small { display:block; font-weight:500; font-size:11.5px; color:var(--text2); margin-top:2px; }
+  .cr-go { color:#e08900; font-weight:900; font-size:15px; flex-shrink:0; }
+  [data-theme="dark"] .cr-go { color:#ffc400; }
+
   /* ── Legal / policies tiles ── */
   .legal-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
   .legal-tile { display:flex; align-items:center; gap:8px; padding:11px 12px; background:var(--card2); border:1.5px solid var(--border); border-radius:12px; text-decoration:none; font-size:12.5px; font-weight:700; color:var(--text); }
@@ -1614,6 +1625,12 @@ function renderSettings() {
           ${I18N_OK ? DS_LANGS.map(l=>`<option value="${l.code}" ${s.language===l.code?"selected":""}>${l.native}</option>`).join("") : ""}
         </select>
       </div>
+      ${(premiumCfg.paddle && premiumCfg.paddle.coffeePrice) ? `
+      <a class="coffee-row" href="/checkout?plan=coffee" target="_blank" rel="noopener">
+        <span class="cr-icon">☕</span>
+        <span class="cr-body">Buy Gabe a coffee<small>Support the guy behind DealSpot — $4, one time</small></span>
+        <span class="cr-go">→</span>
+      </a>` : ""}
     </div>
 
     <div class="group-title">Defaults</div>
@@ -1764,9 +1781,7 @@ function renderSettings() {
       </div>
       <button class="btn btn-ghost btn-block" onclick="showWhatsNew()">✨ What's new (v${APP_VERSION})</button>
       <button class="btn btn-ghost btn-block" onclick="shareApp()">📣 Share DealSpot with a friend</button>
-      ${(premiumCfg.paddle && premiumCfg.paddle.coffeePrice)
-        ? `<a class="btn btn-ghost btn-block" style="text-decoration:none;text-align:center" href="/checkout?plan=coffee" target="_blank" rel="noopener">☕ Buy Gabe a coffee</a>`
-        : (premiumCfg.tipUrl ? `<a class="btn btn-ghost btn-block" style="text-decoration:none;text-align:center" href="${premiumCfg.tipUrl}" target="_blank" rel="noopener">☕ Tip jar — support DealSpot</a>` : "")}
+      ${(!(premiumCfg.paddle && premiumCfg.paddle.coffeePrice) && premiumCfg.tipUrl) ? `<a class="btn btn-ghost btn-block" style="text-decoration:none;text-align:center" href="${premiumCfg.tipUrl}" target="_blank" rel="noopener">☕ Tip jar — support DealSpot</a>` : ""}
       <button class="btn btn-ghost btn-block" onclick="showOnboarding()">👋 Replay welcome tour</button>
       <div class="legal-grid">
         <a class="legal-tile" href="/pricing" target="_blank" rel="noopener"><span class="li">💵</span> Pricing</a>
