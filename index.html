@@ -270,6 +270,16 @@
   .plan-card.best .pc-cta { color:#e08900; }
   [data-theme="dark"] .plan-card.best .pc-cta { color:#ffc400; }
 
+  /* ── Premium crown button + celebration ── */
+  .crown-btn .cb { font-size:21px; line-height:1; display:block; filter:grayscale(1) opacity(.45); transition:filter .2s; }
+  .crown-btn.active .cb { filter:none; animation:crownGlow 2.4s ease-in-out infinite; }
+  @keyframes crownGlow { 0%,100% { text-shadow:0 0 0 rgba(255,196,0,0); } 50% { text-shadow:0 0 14px rgba(255,196,0,.95); } }
+  .crown-btn.free::after { content:""; position:absolute; top:7px; right:7px; width:9px; height:9px; border-radius:50%; background:linear-gradient(135deg,#ffc400,#ff6a00); box-shadow:0 0 6px rgba(255,150,0,.8); }
+  .confetti { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+  .conf { position:absolute; top:-26px; animation:confFall linear forwards; }
+  @keyframes confFall { to { transform:translateY(620px) rotate(350deg); opacity:.4; } }
+  .celebrate-title { font-size:24px; font-weight:900; background:linear-gradient(135deg,#b8860b,#ff6a00); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+
   /* ── Deal voting 🔥💀 ── */
   .vote-btn { display:inline-flex; align-items:center; gap:3px; padding:5px 9px; border-radius:14px; border:1.5px solid var(--border); background:var(--card2); color:var(--text2); font-size:11.5px; font-weight:800; cursor:pointer; font-family:inherit; line-height:1; transition:all .15s; }
   .vote-btn:active { transform:scale(.92); }
@@ -394,6 +404,9 @@
         </div>
       </div>
       <div style="display:flex;gap:10px;">
+        <button class="icon-btn crown-btn free" id="crownBtn" onclick="openPremium()" title="DealSpot Premium">
+          <span class="cb">👑</span>
+        </button>
         <button class="icon-btn" id="refreshBtn" onclick="loadDeals(true)" title="Refresh deals">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
         </button>
@@ -817,13 +830,36 @@ function planCardsHtml() {
     </a>` : ""}
   </div>`;
 }
+function confettiHtml(){
+  const emojis = ["🎉","🎊","👑","⚡","💰","🤑"];
+  const parts = [];
+  for (let i = 0; i < 20; i++) {
+    const left = (i * 5 + Math.random() * 4).toFixed(1);
+    const delay = (Math.random() * 1.4).toFixed(2);
+    const dur = (2.4 + Math.random() * 1.8).toFixed(2);
+    const size = 14 + Math.floor(Math.random() * 10);
+    parts.push(`<span class="conf" style="left:${left}%;animation-delay:${delay}s;animation-duration:${dur}s;font-size:${size}px">${emojis[i % emojis.length]}</span>`);
+  }
+  return `<div class="confetti">${parts.join("")}</div>`;
+}
+function updateCrownBtn(){
+  const b = document.getElementById("crownBtn");
+  if (!b) return;
+  b.classList.toggle("active", !!premium.active);
+  b.classList.toggle("free", !premium.active);
+}
 function showPremiumModal(justUpgraded) {
   const el = document.getElementById("premiumModalBody");
   const em = premiumCfg.earlyMinutes || 8;
   if (premium.active) {
     el.innerHTML = `
+      <div style="position:relative">
+      ${justUpgraded ? confettiHtml() : ""}
       <div style="text-align:center;margin-bottom:10px"><div style="font-size:52px">👑</div></div>
-      <h3 style="text-align:center;margin-bottom:6px">You're Premium!</h3>
+      ${justUpgraded
+        ? `<h3 class="celebrate-title" style="text-align:center;margin-bottom:4px">Congratulations! 🎉</h3>
+           <div style="text-align:center;font-size:14px;font-weight:800;color:var(--text);margin-bottom:6px">Welcome to the Premium family</div>`
+        : `<h3 style="text-align:center;margin-bottom:6px">You're Premium!</h3>`}
       <div style="text-align:center;font-size:13px;color:var(--text2);margin-bottom:16px">${premiumModeLabel()}${premium.email ? " · " + escapeHtml(premium.email) : ""}</div>
       <div class="prem-active" style="margin-bottom:16px">
         <div class="prem-feat"><span class="fi">⚡</span><span>You see every new deal <strong>${em} minutes before</strong> everyone else</span></div>
@@ -833,7 +869,8 @@ function showPremiumModal(justUpgraded) {
       </div>
       <div style="text-align:center;font-size:12.5px;color:var(--text2);margin-bottom:14px">Thank you for supporting DealSpot ❤️</div>
       ${premiumCfg.manageUrl ? `<a class="btn btn-ghost btn-block" href="${premiumCfg.manageUrl}" target="_blank" rel="noopener">Manage subscription</a>` : ""}
-      <div class="modal-actions" style="padding:0"><button class="btn btn-save" style="flex:1" onclick="closePremiumModal()">${justUpgraded ? "Let's go!" : "Done"}</button></div>`;
+      <div class="modal-actions" style="padding:0"><button class="btn btn-save" style="flex:1" onclick="closePremiumModal()">${justUpgraded ? "Let's go! 🚀" : "Done"}</button></div>
+      </div>`;
   } else {
     el.innerHTML = `
       <div style="text-align:center;margin-bottom:10px"><div style="font-size:52px">⚡</div></div>
@@ -1173,6 +1210,8 @@ function render() {
       </a>`;
     }).join("");
   startTeaserCountdown();
+  applyI18n(el);
+  updateCrownBtn();
 }
 function timeAgo(ts) {
   const s = Math.floor((Date.now()-ts)/1000);
