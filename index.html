@@ -293,6 +293,17 @@
   .vote-row { display:flex; align-items:center; gap:7px; margin-top:9px; padding-top:8px; border-top:1px dashed var(--border); }
   .vote-q { font-size:11px; color:var(--text2); font-weight:600; margin-right:auto; }
 
+  /* ── Maker credit 🎨 ── */
+  .maker-splash { position:absolute; inset:0; z-index:400; background:linear-gradient(160deg,#1a1a2e,#6c5ce7 130%); display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; opacity:1; transition:opacity .6s; }
+  .maker-splash.hide { opacity:0; pointer-events:none; }
+  .ms-logo { font-size:64px; animation:msPop .9s cubic-bezier(.16,1,.3,1); }
+  @keyframes msPop { from { transform:scale(.4); opacity:0; } to { transform:scale(1); opacity:1; } }
+  .ms-name { font-size:22px; font-weight:900; margin-top:14px; letter-spacing:.4px; }
+  .ms-by { font-size:12px; opacity:.75; margin-top:6px; letter-spacing:1.2px; text-transform:uppercase; }
+  .maker-card { display:flex; align-items:center; gap:12px; background:linear-gradient(135deg,rgba(108,92,231,.10),rgba(139,92,246,.06)); border:1.5px solid rgba(108,92,231,.35); border-radius:14px; padding:12px 14px; margin-bottom:12px; }
+  .maker-av { width:42px; height:42px; border-radius:50%; background:linear-gradient(135deg,#6c5ce7,#a855f7); color:#fff; font-weight:900; font-size:15px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .ob-maker { position:absolute; bottom:calc(env(safe-area-inset-bottom) + 12px); left:0; right:0; text-align:center; font-size:11px; color:rgba(255,255,255,.75); letter-spacing:.4px; }
+
   /* ── Holiday HQ 🎄 ── */
   .store-tab[data-store="holidays"].active { background:linear-gradient(135deg,#0f766e,#059669); }
   .holi-hero { position:relative; overflow:hidden; border-radius:18px; padding:18px 16px 14px; background:linear-gradient(150deg,#0f5132,#0f766e 55%,#0891b2); color:#fff; margin-bottom:14px; }
@@ -595,6 +606,13 @@
 
   <div class="toast" id="toast"></div>
 
+  <!-- First-run maker splash -->
+  <div class="maker-splash" id="makerSplash" style="display:none">
+    <div class="ms-logo">🏷️</div>
+    <div class="ms-name">DealSpot</div>
+    <div class="ms-by">by Gabriel Garcia Ortiz</div>
+  </div>
+
   <!-- First-run onboarding -->
   <div class="onboarding" id="onboarding">
     <div class="ob-top">
@@ -605,6 +623,7 @@
       <button class="ob-btn" id="obBtn" onclick="obNext()">Next</button>
       <button class="ob-btn secondary" id="obBtn2" style="display:none" onclick="enableNotifsFromOnboarding()">🔔 Enable deal alerts</button>
     </div>
+    <div class="ob-maker">Made by Gabriel Garcia Ortiz 🤍</div>
   </div>
 </div>
 
@@ -1675,6 +1694,13 @@ function renderSettings() {
 
     <div class="group-title">About</div>
     <div class="group" style="padding:14px 16px">
+      <div class="maker-card">
+        <div class="maker-av">GG</div>
+        <div>
+          <div class="row-label">Created by Gabriel Garcia Ortiz</div>
+          <div class="row-sub">Independence, Missouri · built for people who love a good deal · © 2026</div>
+        </div>
+      </div>
       <button class="btn btn-primary btn-block" id="installBtn" style="display:none" onclick="installPWA()">📲 Install DealSpot</button>
       <div class="row-sub" id="installHint" style="line-height:1.6; margin-bottom:10px">
         <strong>DealSpot</strong> is a Progressive Web App — install it to your home screen for a full-screen, app-like experience, no app store needed.
@@ -1732,6 +1758,10 @@ function renderLegal() {
 
     <h3>Accuracy & availability</h3>
     <p>Deals are provided "as is" by third parties. Prices and availability change constantly and may differ from what is shown; always verify the final price on the retailer's page before purchasing.</p>
+
+    <h3>Copyright & credits</h3>
+    <p><strong>© 2026 Gabriel Garcia Ortiz. All rights reserved.</strong> DealSpot — including its design, code, and branding — is the original work of Gabriel Garcia Ortiz, first published in 2026. Unauthorized copying or republishing of the app is not permitted.</p>
+    <p>DealSpot is an independent application created by Gabriel Garcia Ortiz. It is not affiliated with, endorsed by, or sponsored by Amazon, Walmart, Sam's Club, Best Buy, Target, or any other retailer. All product names, logos, brands, and trademarks are the property of their respective owners.</p>
 
     <h3>Your choices</h3>
     <p>You can clear all local data any time from <strong>Settings → Data → Reset everything</strong>, or by clearing your browser's site data. You can deny notification permission at any time in your browser settings.</p>
@@ -2091,8 +2121,9 @@ if ("serviceWorker" in navigator) {
 }
 
 // ── "What's new" on update ─────────────────────────────────────
-const APP_VERSION = "3.5.0";
+const APP_VERSION = "3.5.1";
 const CHANGELOG = [
+  { ic:"🎨", t:"Made by Gabriel Garcia Ortiz", d:"DealSpot now carries its maker's signature — a one-time splash on first open, a creator card in Settings → About, and full copyright in the privacy policy." },
   { ic:"🎄", t:"Holiday Deal HQ", d:"A festive new tab with live Black Friday, Cyber Monday and Christmas countdowns, Top-20 deal rankings, gift budgets (under $25/$50/$100) and one-tap mega-deal alerts for 70%+ drops. Santa approves." },
   { ic:"💳", t:"Refunds made friendly", d:"Premium members can now open Billing & Refunds from Settings to get their purchase reference and reach Paddle support in one tap." },
   { ic:"👈", t:"Swipe between tabs", d:"Glide left or right to move between Deals, Watchlist, Alerts and Settings — like flipping pages. At the ends it stops: Deals only swipes one way, Settings the other." },
@@ -2222,6 +2253,18 @@ setupRefreshTimer();
 initPremium().then(() => loadDeals(false));
 reRegisterPushOnLoad();
 applyI18n(document.getElementById("phone")); // translate nav + static header once
+// First-run maker splash — a 1.8s signature moment, once ever
+(function(){
+  try {
+    if (localStorage.getItem("ds_seen_maker")) return;
+    const sp = document.getElementById("makerSplash");
+    if (!sp) return;
+    sp.style.display = "flex";
+    setTimeout(() => { sp.classList.add("hide"); localStorage.setItem("ds_seen_maker", "1");
+      setTimeout(() => { sp.style.display = "none"; }, 700);
+    }, 1800);
+  } catch(e) {}
+})();
 
 // Show welcome screen for first-time visitors (but not when launched via a
 // PWA shortcut with a deep-link, since that implies they already use it).
