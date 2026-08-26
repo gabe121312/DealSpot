@@ -293,6 +293,12 @@
   .vote-row { display:flex; align-items:center; gap:7px; margin-top:9px; padding-top:8px; border-top:1px dashed var(--border); }
   .vote-q { font-size:11px; color:var(--text2); font-weight:600; margin-right:auto; }
 
+  /* ── Legal / policies tiles ── */
+  .legal-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+  .legal-tile { display:flex; align-items:center; gap:8px; padding:11px 12px; background:var(--card2); border:1.5px solid var(--border); border-radius:12px; text-decoration:none; font-size:12.5px; font-weight:700; color:var(--text); }
+  .legal-tile:active { transform:scale(.97); }
+  .legal-tile .li { font-size:17px; }
+
   /* ── Maker credit 🎨 ── */
   .maker-splash { position:absolute; inset:0; z-index:400; background:linear-gradient(160deg,#1a1a2e,#6c5ce7 130%); display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; opacity:1; transition:opacity .6s; }
   .maker-splash.hide { opacity:0; pointer-events:none; }
@@ -1724,10 +1730,12 @@ function renderSettings() {
       <button class="btn btn-ghost btn-block" onclick="shareApp()">📣 Share DealSpot with a friend</button>
       ${premiumCfg.tipUrl ? `<a class="btn btn-ghost btn-block" style="text-decoration:none;text-align:center" href="${premiumCfg.tipUrl}" target="_blank" rel="noopener">☕ Tip jar — support DealSpot</a>` : ""}
       <button class="btn btn-ghost btn-block" onclick="showOnboarding()">👋 Replay welcome tour</button>
-      <button class="btn btn-ghost btn-block" onclick="openLegal()">📄 ${T("Privacy Policy & Disclosures")}</button>
-      <a class="btn btn-ghost btn-block" style="text-decoration:none;text-align:center" href="/pricing" target="_blank" rel="noopener">💵 Pricing</a>
-      <a class="btn btn-ghost btn-block" style="text-decoration:none;text-align:center" href="/terms" target="_blank" rel="noopener">📄 Terms of Service</a>
-      <a class="btn btn-ghost btn-block" style="text-decoration:none;text-align:center" href="/refunds" target="_blank" rel="noopener">🔁 Refund Policy</a>
+      <div class="legal-grid">
+        <a class="legal-tile" href="/pricing" target="_blank" rel="noopener"><span class="li">💵</span> Pricing</a>
+        <a class="legal-tile" href="/terms" target="_blank" rel="noopener"><span class="li">📜</span> Terms of Service</a>
+        <a class="legal-tile" href="/privacy" target="_blank" rel="noopener"><span class="li">🔒</span> Privacy Policy</a>
+        <a class="legal-tile" href="/refunds" target="_blank" rel="noopener"><span class="li">🔁</span> Refund Policy</a>
+      </div>
     </div>
   `;
   refreshInstallButton();
