@@ -1,5 +1,5 @@
 /* DealSpot service worker — app-shell caching + push notifications */
-const CACHE = "dealspot-v25";
+const CACHE = "dealspot-v26";
 const NT_ICON = "data:image/svg+xml," + encodeURIComponent(
   "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>" +
   "<rect width='100' height='100' rx='22' fill='#6c5ce7'/>" +

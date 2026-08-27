@@ -181,7 +181,13 @@
   .rating { display:flex; align-items:center; gap:3px; font-size:11px; color:var(--text2); font-weight:600; }
   .star { color:var(--orange); }
   .view-deal { display:inline-flex; align-items:center; gap:4px; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; font-size:11px; font-weight:800; letter-spacing:0.3px; padding:7px 11px; border-radius:9px; text-decoration:none; white-space:nowrap; }
-  .heart { width:32px; height:32px; border-radius:50%; border:none; background:var(--card2); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .2s; flex-shrink:0; }
+  .heart { width:38px; height:38px; border-radius:50%; border:1.5px solid var(--border); background:var(--card); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .2s; flex-shrink:0; color:#ef4444; box-shadow:0 2px 6px rgba(0,0,0,.08); }
+  .heart svg { stroke:#ef4444; }
+  .heart.active { background:#fee2e2; border-color:#fecaca; }
+  [data-theme="dark"] .heart.active { background:rgba(239,68,68,.18); border-color:rgba(239,68,68,.45); }
+  .heart.active svg { fill:#ef4444; }
+  .share-btn { color:var(--accent); }
+  .share-btn svg { stroke:var(--accent); }
   .heart svg { width:16px; height:16px; color:var(--text2); transition:all .2s; }
   .heart.active { background:#fee2e2; }
   .heart.active svg { color:var(--red); fill:var(--red); }
@@ -293,6 +299,17 @@
   .digest-row input { flex:1; padding:10px 13px; border:1.5px solid var(--border); border-radius:10px; background:var(--card2); color:var(--text); font-size:14px; font-family:inherit; outline:none; }
   .vote-row { display:flex; align-items:center; gap:7px; margin-top:9px; padding-top:8px; border-top:1px dashed var(--border); }
   .vote-q { font-size:11px; color:var(--text2); font-weight:600; margin-right:auto; }
+
+  /* ── Refund contact options ── */
+  .refund-options { display:flex; flex-direction:column; gap:10px; margin-bottom:2px; }
+  .refund-opt { display:flex; align-items:center; gap:11px; padding:13px 14px; border-radius:14px; text-decoration:none;
+    background:var(--card2); border:1.5px solid var(--border); }
+  .refund-opt:active { transform:scale(.98); }
+  .refund-opt.primary { border-color:var(--accent); background:linear-gradient(135deg,rgba(108,92,231,.10),rgba(139,92,246,.06)); }
+  .ro-icon { font-size:20px; line-height:1; flex-shrink:0; }
+  .ro-body { flex:1; min-width:0; font-size:13.5px; font-weight:800; color:var(--text); }
+  .ro-body small { display:block; font-weight:500; font-size:11.5px; color:var(--text2); margin-top:2px; }
+  .ro-go { color:var(--accent); font-weight:900; font-size:15px; flex-shrink:0; }
 
   /* ── Coffee row ☕ ── */
   .coffee-row { display:flex; align-items:center; gap:11px; width:100%; margin-top:10px; text-decoration:none;
@@ -924,9 +941,20 @@ function openRefunds(){
       <div class="prem-feat"><span class="fi">2️⃣</span><span>Paste your reference code when asked<small>The copy button above makes this easy</small></span></div>
       <div class="prem-feat"><span class="fi">⏱️</span><span>Money back, usually within 1–2 days<small>Returned to the same card you paid with</small></span></div>
     </div>
-    <a class="btn btn-primary btn-block" style="text-decoration:none;text-align:center" href="https://paddle.net" target="_blank" rel="noopener">Open Paddle support (fastest)</a>
-    ${premiumCfg.refundEmail ? `<a class="btn btn-ghost btn-block" style="text-decoration:none;text-align:center" href="mailto:${escapeHtml(premiumCfg.refundEmail)}?subject=${encodeURIComponent("DealSpot refund request " + ref)}&body=${encodeURIComponent("Hi! I'd like a refund. My purchase reference: " + (ref || "(see my Paddle receipt email)"))}">📧 Email DealSpot support</a>` : ""}
-    <div class="modal-actions" style="padding:0;margin-top:10px"><button class="btn btn-cancel" style="flex:1" onclick="closeRefunds()">Close</button></div>`;
+    <div class="refund-options">
+      <a class="refund-opt primary" href="https://paddle.net" target="_blank" rel="noopener">
+        <span class="ro-icon">⚡</span>
+        <span class="ro-body">Open Paddle support<small>Fastest — they process refunds directly</small></span>
+        <span class="ro-go">→</span>
+      </a>
+      ${premiumCfg.refundEmail ? `
+      <a class="refund-opt" href="mailto:${escapeHtml(premiumCfg.refundEmail)}?subject=${encodeURIComponent("DealSpot refund request " + ref)}&body=${encodeURIComponent("Hi! I'd like a refund. My purchase reference: " + (ref || "(see my Paddle receipt email)"))}">
+        <span class="ro-icon">📧</span>
+        <span class="ro-body">Email DealSpot support<small>Gabe personally — usually within a day</small></span>
+        <span class="ro-go">→</span>
+      </a>` : ""}
+    </div>
+    <div class="modal-actions" style="padding:0;margin-top:14px"><button class="btn btn-cancel" style="flex:1" onclick="closeRefunds()">Close</button></div>`;
   document.getElementById("refundModal").classList.add("open");
 }
 function copyRef(ref){
