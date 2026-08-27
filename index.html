@@ -177,7 +177,9 @@
   .price-sale { font-size:18px; font-weight:800; }
   .price-orig { font-size:12.5px; color:var(--text2); text-decoration:line-through; }
   .price-save { font-size:11px; font-weight:700; color:var(--green); }
-  .card-footer { display:flex; align-items:center; justify-content:space-between; margin-top:7px; gap:8px; }
+  .card-footer { display:flex; align-items:center; justify-content:space-between; margin-top:7px; gap:8px; flex-wrap:wrap; }
+  .card-footer .rating { min-width:0; overflow:hidden; }
+  .card-footer > div:last-child { display:flex; gap:7px; align-items:center; flex-shrink:0; margin-left:auto; }
   .rating { display:flex; align-items:center; gap:3px; font-size:11px; color:var(--text2); font-weight:600; }
   .star { color:var(--orange); }
   .view-deal { display:inline-flex; align-items:center; gap:4px; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; font-size:11px; font-weight:800; letter-spacing:0.3px; padding:7px 11px; border-radius:9px; text-decoration:none; white-space:nowrap; }

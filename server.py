@@ -172,6 +172,8 @@ _tr_fail_until = 0          # backoff timestamp after service errors
 
 # ── Community votes + digest list state ────────────────────────────────
 VOTES_FILE = os.path.join(HERE, "votes.json")
+_dead_links = {}   # product URL -> True (404/410 confirmed) — swapped to thread links
+_link_checked = {} # product URL -> last-check timestamp
 _ts_lock = threading.Lock()
 _votes = {}                    # deal id -> {"fire": n, "dead": n}
 _votes_lock = threading.Lock()
@@ -974,6 +976,7 @@ def load_live_deals(force=False):
             except Exception as e:
                 print(f"[warn] feed failed {feed}: {e}")
         if all_deals:
+            apply_link_fallbacks(all_deals)
             now_ms = int(time.time() * 1000)
             for d in all_deals:
                 if d["id"] not in _first_seen:
@@ -1029,6 +1032,49 @@ def check_target_alerts():
         print(f"[targets] fired {fired} target alerts")
 
 
+def link_health_checks():
+    """HEAD-check direct retailer links; confirmed-dead ones (404/410) fall
+    back to the Slickdeals thread page, which stays alive + shows status.
+    401/403/405 usually mean bot-blocking, not a dead page — keep those."""
+    deals = _cache.get("data") or []
+    now = time.time()
+    todo = []
+    for d in deals:
+        u = d.get("url") or ""
+        th = d.get("threadUrl") or ""
+        if not u or not u.startswith("http") or u == th:
+            continue
+        if _dead_links.get(u):
+            continue
+        if now - _link_checked.get(u, 0) < 1800:  # re-check every 30 min
+            continue
+        todo.append(u)
+        if len(todo) >= 10:  # budget per cycle
+            break
+    for u in todo:
+        _link_checked[u] = now
+        try:
+            req = Request(u, method="HEAD", headers={"User-Agent": UA})
+            with urlopen(req, timeout=6) as r:
+                pass  # 2xx/3xx — alive
+        except Exception as e:
+            code = getattr(e, "code", None)
+            if code in (404, 410):
+                _dead_links[u] = True
+                print("[links] dead link →thread fallback:", code, u[:80])
+            # 401/403/405/timeouts = ambiguous (bot blocks) → keep direct
+        time.sleep(0.4)
+
+
+def apply_link_fallbacks(deals):
+    th_default = None
+    for d in deals:
+        u = d.get("url") or ""
+        if u and _dead_links.get(u):
+            d["url"] = d.get("threadUrl") or u
+    return deals
+
+
 def background_refresh_loop():
     """Refresh the feed every minute and push truly-new matching deals."""
     while True:
@@ -1042,6 +1088,7 @@ def background_refresh_loop():
                 print(f"[push] {len(new_deals)} new deals; broadcasting to {len(_subs)} devices")
                 broadcast_new_deals(new_deals)
             check_target_alerts()
+            link_health_checks()
         except Exception as e:
             print("[push] background error:", e)
 
