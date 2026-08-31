@@ -54,13 +54,16 @@ PORT = int(os.environ.get("PORT", 8080))
 CACHE_TTL = 300
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-FEEDS = [
-    # 5 sources x ~25 deals each = 100+ live deals (deduped by id)
-    "https://feeds.feedburner.com/SlickdealsnetFP",                          # front page
-    "https://slickdeals.net/forums/external.php?type=rss2&forumids=9",       # hot deals
-    "https://slickdeals.net/forums/external.php?type=rss2&forumids=10,30",   # coupons + travel
-    "https://slickdeals.net/forums/external.php?type=rss2&forumids=39,53,55",# computers + phones + TV
-    "https://slickdeals.net/forums/external.php?type=rss2&forumids=13,15,64",# drugstore + freebies + sports
+FEEDS = [  # FREE — everyone (~100 deals)
+    "https://feeds.feedburner.com/SlickdealsnetFP",                     # front page
+    "https://slickdeals.net/forums/external.php?type=rss2&forumids=9",  # hot deals
+    "https://slickdeals.net/forums/external.php?type=rss2&forumids=10", # coupons
+    "https://slickdeals.net/forums/external.php?type=rss2&forumids=4",  # freebies
+]
+PREMIUM_FEEDS = [  # PREMIUM-ONLY — up to ~75 extra deals
+    "https://slickdeals.net/forums/external.php?type=rss2&forumids=38",  # drugstore/grocery B&M clearance (in-store!)
+    "https://slickdeals.net/forums/external.php?type=rss2&forumids=53",  # travel deals
+    "https://slickdeals.net/forums/external.php?type=rss2&forumids=177", # marketplace finds
 ]
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
@@ -74,6 +77,15 @@ RETAILERS = [
     ("lowes.com", "lowes"), ("newegg.com", "newegg"),
     ("bjs.com", "bjs"), ("kohls.com", "kohls"),
     ("macys.com", "macys"), ("wayfair.com", "wayfair"),
+    ("bathandbodyworks.com", "bbw"), ("nike.com", "nike"), ("adidas.com", "adidas"),
+    ("oldnavy.com", "oldnavy"), ("gap.com", "gap"), ("shein.com", "shein"),
+    ("zara.com", "zara"), ("footlocker.com", "footlocker"), ("dsw.com", "dsw"),
+    ("tjmaxx.com", "tjmaxx"), ("rossstores.com", "ross"), ("nordstrom.com", "nordstrom"),
+    ("victoriassecret.com", "victorias"), ("ae.com", "ae"), ("levi.com", "levis"),
+    ("lululemon.com", "lululemon"), ("famousfootwear.com", "famousfootwear"),
+    ("champssports.com", "champs"), ("hollisterco.com", "hollister"),
+    ("abercrombie.com", "abercrombie"), ("bananarepublic.com", "bananarepublic"),
+    ("hm.com", "hm"), ("2.hm.com", "hm"),
 ]
 TEXT_RETAILERS = [
     ("sams club", "samsclub"), ("samsclub", "samsclub"), ("sam's club", "samsclub"),
@@ -83,12 +95,26 @@ TEXT_RETAILERS = [
     ("lowe's", "lowes"), ("newegg", "newegg"), ("bj's", "bjs"),
     ("bjs", "bjs"), ("kohl's", "kohls"), ("kohls", "kohls"),
     ("macy's", "macys"), ("macys", "macys"), ("wayfair", "wayfair"),
+    ("bath and body works", "bbw"), ("bath & body works", "bbw"), ("bathbodyworks", "bbw"),
+    ("nike", "nike"), ("adidas", "adidas"), ("old navy", "oldnavy"), ("gap ", "gap"),
+    ("shein", "shein"), ("zara", "zara"), ("foot locker", "footlocker"), ("footlocker", "footlocker"),
+    ("dsw", "dsw"), ("tj maxx", "tjmaxx"), ("tjmaxx", "tjmaxx"), ("ross", "ross"),
+    ("nordstrom", "nordstrom"), ("victoria's secret", "victorias"), ("victoriassecret", "victorias"),
+    ("american eagle", "ae"), ("levi's", "levis"), ("levis", "levis"), ("lululemon", "lululemon"),
+    ("famous footwear", "famousfootwear"), ("champs sports", "champs"), ("hollister", "hollister"),
+    ("abercrombie", "abercrombie"), ("banana republic", "bananarepublic"), ("h&m", "hm"),
 ]
 STORE_LABELS = {
     "amazon":"Amazon","walmart":"Walmart","bestbuy":"Best Buy","target":"Target",
     "ebay":"eBay","costco":"Costco","homedepot":"Home Depot","lowes":"Lowe's",
     "newegg":"Newegg","bjs":"BJ's","kohls":"Kohl's","macys":"Macy's",
     "wayfair":"Wayfair","samsclub":"Sam's Club","other":"Other Store",
+    "bbw":"Bath & Body Works","nike":"Nike","adidas":"Adidas","oldnavy":"Old Navy",
+    "gap":"Gap","shein":"Shein","zara":"Zara","footlocker":"Foot Locker","dsw":"DSW",
+    "tjmaxx":"T.J. Maxx","ross":"Ross","nordstrom":"Nordstrom","victorias":"Victoria's Secret",
+    "ae":"American Eagle","levis":"Levi's","lululemon":"Lululemon","famousfootwear":"Famous Footwear",
+    "champs":"Champs Sports","hollister":"Hollister","abercrombie":"Abercrombie",
+    "bananarepublic":"Banana Republic","hm":"H&M",
 }
 
 US_STATES = {
@@ -786,18 +812,23 @@ def send_matches(subs, deals, instant=False):
 
 def broadcast_new_deals(new_deals):
     """Premium members get pushes INSTANTLY; free users get them once the
-    deal's early-access window (PREMIUM_EARLY_MINUTES) has passed."""
+    deal's early-access window passes. Premium-feed deals NEVER reach free
+    users — they're exclusive content."""
     if not new_deals:
         return
     with _subs_lock:
         subs = list(_subs)
     premium_subs = [s for s in subs if s.get("premium")]
-    if premium_subs:
-        send_matches(premium_subs, new_deals, instant=True)
-    # Queue for free users — flushed by the background loop at unlock time.
-    for d in new_deals:
-        _delayed_push.append({"id": d["id"], "deal": d, "at": time.time() + FREE_DELAY_SEC})
-    _delayed_push[:] = _delayed_push[-200:]
+    exclusive = [d for d in new_deals if d.get("premiumOnly")]
+    base_deals = [d for d in new_deals if not d.get("premiumOnly")]
+    if exclusive and premium_subs:
+        send_matches(premium_subs, exclusive, instant=True)
+    if base_deals:
+        if premium_subs:
+            send_matches(premium_subs, base_deals, instant=True)
+        for d in base_deals:
+            _delayed_push.append({"id": d["id"], "deal": d, "at": time.time() + FREE_DELAY_SEC})
+        _delayed_push[:] = _delayed_push[-200:]
 
 
 def flush_delayed_pushes():
@@ -970,12 +1001,14 @@ def load_live_deals(force=False):
         if not force and _cache["data"] and time.time() - _cache["ts"] < CACHE_TTL:
             return _cache["data"], False
         all_deals, seen = [], set()
-        for feed in FEEDS:
+        for feed in FEEDS + PREMIUM_FEEDS:
+            premium_only = feed in PREMIUM_FEEDS
             try:
                 raw = fetch_url(feed)
                 for d in parse_feed(raw):
                     if d["id"] not in seen:
                         seen.add(d["id"])
+                        d["premiumOnly"] = premium_only
                         all_deals.append(d)
             except Exception as e:
                 print(f"[warn] feed failed {feed}: {e}")
@@ -1149,8 +1182,12 @@ class Handler(SimpleHTTPRequestHandler):
                        "updated": int(_cache["ts"] * 1000),
                        "source": "Slickdeals live RSS", "premium": bool(payload)}
                 if not payload:
-                    # Free user: hold back brand-new deals for the early-access
-                    # window, but tell them what they're missing (upsell teaser).
+                    # Free user: exclusive premium-feed deals are hidden entirely,
+                    # and brand-new deals wait out the early-access window.
+                    exclusive = [d for d in deals if d.get("premiumOnly")]
+                    deals = [d for d in deals if not d.get("premiumOnly")]
+                    out["deals"] = deals
+                    out["count"] = len(deals)
                     now_ms = int(time.time() * 1000)
                     fresh = [d for d in deals
                              if now_ms - d.get("firstSeen", 0) < FREE_DELAY_SEC * 1000]
@@ -1158,10 +1195,15 @@ class Handler(SimpleHTTPRequestHandler):
                         out["deals"] = [d for d in deals
                                         if now_ms - d.get("firstSeen", 0) >= FREE_DELAY_SEC * 1000]
                         out["count"] = len(out["deals"])
-                        out["premiumTeaser"] = {
+                        teaser = {
                             "count": len(fresh),
                             "unlockAt": min(d.get("firstSeen", 0) for d in fresh) + FREE_DELAY_SEC * 1000,
                         }
+                        if exclusive:
+                            teaser["exclusive"] = len(exclusive)
+                        out["premiumTeaser"] = teaser
+                    elif exclusive:
+                        out["premiumTeaser"] = {"count": 0, "exclusive": len(exclusive), "unlockAt": 0}
                 self._json(out)
             except Exception as e:
                 self._json({"error": str(e), "deals": []}, 502)
