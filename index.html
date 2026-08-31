@@ -102,7 +102,8 @@
   .logo-text h1 { font-size:20px; font-weight:800; letter-spacing:-0.5px; }
   .logo-text { min-width:0; }
   .logo-text p { font-size:11px; color:var(--text2); font-weight:500; display:flex; align-items:center; gap:5px; min-width:0; overflow:hidden; white-space:nowrap; }
-  .header .h-top > div:last-child { flex-shrink:0; }
+  .header-top > div:last-child { flex-shrink:0; }  /* icon row can never be pushed off */
+  .logo { flex-shrink:0; }
   .icon-btn { width:40px; height:40px; border-radius:50%; background:var(--card); display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow); cursor:pointer; border:none; color:var(--text); position:relative; }
   .icon-btn svg { width:20px; height:20px; }
   .nav-badge { position:absolute; top:6px; right:6px; min-width:16px; height:16px; padding:0 4px; background:var(--red); color:#fff; font-size:10px; font-weight:800; border-radius:8px; display:flex; align-items:center; justify-content:center; border:2px solid var(--card); }
@@ -1322,8 +1323,8 @@ function render() {
   const total = allDeals().filter(d => !settings.hiddenStores.includes(d.store)).length;
   const ago = lastUpdated ? timeAgo(lastUpdated) : "";
   document.getElementById("deal-count").innerHTML = isLive
-    ? `<span class="live-dot"></span> ${TF("liveDeals", total)} · ${ago}${premium.active ? '<span class="crown-chip">⚡ PREMIUM</span>' : ""}`
-    : `${total} sample deals${premium.active ? '<span class="crown-chip">⚡ PREMIUM</span>' : ""}`;
+    ? `<span class="live-dot"></span> ${TF("liveDeals", total)} · ${ago}`
+    : `${total} sample deals`;
 
   const SPECIAL_TITLES = {all:"🔥 All Live Deals",local:"📍 Near You",other:"Other Stores",watchlist:"❤️ Your Watchlist"};
   const titleText = SPECIAL_TITLES[currentStore] || ((STORE_LABELS[currentStore] || "") + " " + T("Deals")).trim();
