@@ -86,6 +86,20 @@ RETAILERS = [
     ("champssports.com", "champs"), ("hollisterco.com", "hollister"),
     ("abercrombie.com", "abercrombie"), ("bananarepublic.com", "bananarepublic"),
     ("hm.com", "hm"), ("2.hm.com", "hm"),
+    ("sephora.com", "sephora"), ("petsmart.com", "petsmart"), ("petco.com", "petco"),
+    ("chewy.com", "chewy"), ("staples.com", "staples"), ("officedepot.com", "officedepot"),
+    ("harborfreight.com", "harborfreight"), ("autzone", "autozone"), ("autozone.com", "autozone"),
+    ("advanceautoparts.com", "advanceauto"), ("oreillyauto.com", "oreillys"), ("rockauto.com", "rockauto"),
+    ("gamestop.com", "gamestop"), ("playstation.com", "playstation"), ("xbox.com", "xbox"),
+    ("nintendo.com", "nintendo"), ("steampowered.com", "steam"), ("samsung.com", "samsung"),
+    ("lg.com", "lg"), ("dell.com", "dell"), ("lenovo.com", "lenovo"), ("asu.com", "asus"),
+    ("garmin.com", "garmin"), ("anker.com", "anker"), ("hp.com", "hp"), ("jbl.com", "jbl"),
+    ("ikea.com", "ikea"), ("overstock.com", "overstock"), ("burlington.com", "burlington"),
+    ("jcp.com", "jcpenney"), ("michaels.com", "michaels"), ("joann.com", "joann"),
+    ("crocs.com", "crocs"), ("underarmour.com", "underarmour"), ("puma.com", "puma"),
+    ("newbalance.com", "newbalance"), ("skechers.com", "skechers"), ("vans.com", "vans"),
+    ("carters.com", "carters"), ("lego.com", "lego"), ("shopdisney.com", "disney"),
+    ("zoro.com", "zoro"), ("safelite.com", "safelite"), ("partzilla.com", "partzilla"),
 ]
 TEXT_RETAILERS = [
     ("sams club", "samsclub"), ("samsclub", "samsclub"), ("sam's club", "samsclub"),
@@ -103,6 +117,17 @@ TEXT_RETAILERS = [
     ("american eagle", "ae"), ("levi's", "levis"), ("levis", "levis"), ("lululemon", "lululemon"),
     ("famous footwear", "famousfootwear"), ("champs sports", "champs"), ("hollister", "hollister"),
     ("abercrombie", "abercrombie"), ("banana republic", "bananarepublic"), ("h&m", "hm"),
+    ("sephora", "sephora"), ("petsmart", "petsmart"), ("petco", "petco"), ("chewy", "chewy"),
+    ("staples", "staples"), ("office depot", "officedepot"), ("harbor freight", "harborfreight"),
+    ("autozone", "autozone"), ("advance auto", "advanceauto"), ("o'reilly", "oreillys"),
+    ("rockauto", "rockauto"), ("gamestop", "gamestop"), ("playstation", "playstation"),
+    ("xbox", "xbox"), ("nintendo", "nintendo"), ("steam ", "steam"), ("samsung", "samsung"),
+    ("garmin", "garmin"), ("anker", "anker"), ("ikea", "ikea"), ("overstock", "overstock"),
+    ("burlington", "burlington"), ("jcpenn", "jcpenney"), ("michaels", "michaels"),
+    ("joann", "joann"), ("crocs", "crocs"), ("under armour", "underarmour"),
+    ("underarmour", "underarmour"), ("puma", "puma"), ("new balance", "newbalance"),
+    ("skechers", "skechers"), ("vans", "vans"), ("carter's", "carters"), ("lego", "lego"),
+    ("shopdisney", "disney"), ("zoro", "zoro"), ("safelite", "safelite"),
 ]
 STORE_LABELS = {
     "amazon":"Amazon","walmart":"Walmart","bestbuy":"Best Buy","target":"Target",
@@ -115,6 +140,16 @@ STORE_LABELS = {
     "ae":"American Eagle","levis":"Levi's","lululemon":"Lululemon","famousfootwear":"Famous Footwear",
     "champs":"Champs Sports","hollister":"Hollister","abercrombie":"Abercrombie",
     "bananarepublic":"Banana Republic","hm":"H&M",
+    "sephora":"Sephora","petsmart":"PetSmart","petco":"Petco","chewy":"Chewy",
+    "staples":"Staples","officedepot":"Office Depot","harborfreight":"Harbor Freight",
+    "autozone":"AutoZone","advanceauto":"Advance Auto","oreillys":"O'Reilly","rockauto":"RockAuto",
+    "gamestop":"GameStop","playstation":"PlayStation","xbox":"Xbox","nintendo":"Nintendo",
+    "steam":"Steam","samsung":"Samsung","lg":"LG","dell":"Dell","lenovo":"Lenovo","asus":"ASUS",
+    "garmin":"Garmin","anker":"Anker","hp":"HP","jbl":"JBL","ikea":"IKEA","overstock":"Overstock",
+    "burlington":"Burlington","jcpenney":"JCPenney","michaels":"Michaels","joann":"JOANN",
+    "crocs":"Crocs","underarmour":"Under Armour","puma":"Puma","newbalance":"New Balance",
+    "skechers":"Skechers","vans":"Vans","carters":"Carter's","lego":"LEGO","disney":"Disney Store",
+    "zoro":"Zoro","safelite":"Safelite","partzilla":"Partzilla",
 }
 
 US_STATES = {
@@ -929,6 +964,8 @@ def categorize(text):
                "keyboard","charger","vacuum robot"]
     home_kw = ["vacuum","cookware","mattress","towel","coffee","air fryer","instant pot",
                "grill","sofa","lamp","kitchen","blender","pressure cooker","stand mixer","knife"]
+    if re.search(r"\b(coupon|promo code|promo|discount code|voucher|rebate|\d+% off (your |sitewide|any |order)|\$?\d+ off (your |orders? |purchases? |sitewide)|code:? ?[A-Z0-9]{4,})", t):
+        return "coupon"
     if any(k in t for k in tech_kw): return "tech"
     if any(k in t for k in home_kw): return "home"
     return "other"

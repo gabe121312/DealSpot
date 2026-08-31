@@ -523,6 +523,7 @@
     <button class="chip" data-filter="50">50%+ Off</button>
     <button class="chip" data-filter="30">30%+ Off</button>
     <button class="chip" data-filter="20">20%+ Off</button>
+    <button class="chip" data-filter="coupon">🏷 Coupons</button>
     <button class="chip" data-filter="tech">Tech</button>
     <button class="chip" data-filter="home">Home</button>
   </div>
@@ -1287,6 +1288,7 @@ function getFiltered() {
   if (currentFilter === "50") list = list.filter(d => pct(d) >= 50);
   else if (currentFilter === "30") list = list.filter(d => pct(d) >= 30);
   else if (currentFilter === "20") list = list.filter(d => pct(d) >= 20);
+  else if (currentFilter === "coupon") list = list.filter(d => d.cat === "coupon");
   else if (currentFilter === "tech" || currentFilter === "home") list = list.filter(d => d.cat === currentFilter);
   const q = document.getElementById("search").value.trim().toLowerCase();
   if (q) list = list.filter(d => d.name.toLowerCase().includes(q));
@@ -2340,8 +2342,9 @@ if ("serviceWorker" in navigator) {
 }
 
 // ── "What's new" on update ─────────────────────────────────────
-const APP_VERSION = "3.7.1";
+const APP_VERSION = "3.7.2";
 const CHANGELOG = [
+  { ic:"🏷️", t:"45+ new store labels & coupon filter", d:"Deals from Sephora, PetSmart, Staples, Anker, Harbor Freight, GameStop, PlayStation, Samsung, IKEA, LEGO and 35+ more now show their real store name instead of “Other”. Plus a new 🏷 Coupons filter chip for promo codes and dollar-off deals." },
   { ic:"🎁", t:"Bigger feed + 48h Premium archive", d:"Everyone now gets every category — ~175 live deals including coupons, freebies, local clearance, travel and marketplace finds, with proper labels for Bath & Body Works, Nike, Adidas and 20+ fashion stores. Premium adds a rolling 48-hour archive: hundreds of extra deals that scrolled off the live window but may still be alive." },
   { ic:"🎯", t:"Price-target alerts (Premium)", d:"Watching a deal in your Watchlist? Tap 🎯, set your price, and DealSpot pings you the moment it drops under it — on your phone and in the app." },
   { ic:"🖼️", t:"Shareable deal cards", d:"Sharing a deal now creates a beautiful share image with the price slash and discount badge — perfect for stories, WhatsApp and group chats." },
