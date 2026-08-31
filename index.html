@@ -1330,13 +1330,15 @@ function render() {
 
   const SPECIAL_TITLES = {all:"🔥 All Live Deals",local:"📍 Near You",other:"Other Stores",watchlist:"❤️ Your Watchlist"};
   const titleText = SPECIAL_TITLES[currentStore] || ((STORE_LABELS[currentStore] || "") + " " + T("Deals")).trim();
-  const teaserHtml = (!premium.active && premiumTeaser && premiumTeaser.count > 0 && currentStore === "all")
+  const teaserCount = (premiumTeaser && premiumTeaser.count) || 0;
+  const teaserExtra = (premiumTeaser && (premiumTeaser.archive || premiumTeaser.exclusive)) || 0;
+  const teaserHtml = (!premium.active && (teaserCount > 0 || teaserExtra > 0) && currentStore === "all")
     ? `<div class="premium-teaser" onclick="openPremium()">
          <div class="pt-icon">⚡</div>
          <div class="pt-body">
-           <div class="pt-title">${TF("teaserN", premiumTeaser.count)}</div>
-           <div class="pt-sub">${T("Unlocks for you in")} <strong id="teaserCountdown">--:--</strong> ${TF("unlockOr")}</div>
-           ${premiumTeaser.archive ? `<div class="pt-sub" style="margin-top:2px">🎁 Premium members also see <strong>+${premiumTeaser.archive} deals from the last 48h</strong></div>` : ""}
+           ${teaserCount > 0 ? `<div class="pt-title">${TF("teaserN", teaserCount)}</div>
+           <div class="pt-sub">${T("Unlocks for you in")} <strong id="teaserCountdown">--:--</strong> ${TF("unlockOr")}</div>` : ""}
+           ${teaserExtra > 0 ? `<div class="pt-title" style="${teaserCount>0?"margin-top:4px":""}">🎁 Premium members see <strong>+${teaserExtra} deals</strong> from the last 48h</div>` : ""}
          </div>
          <div class="pt-btn">${T("⚡ Upgrade")}</div>
        </div>` : "";
@@ -2459,8 +2461,24 @@ function enableNotifsFromOnboarding() {
 }
 
 // ── Boot ───────────────────────────────────────────────────────
+function focusDeal(id){
+  // highlight + scroll to a deal opened via push notification
+  setTimeout(() => {
+    try {
+      const c = document.querySelector('.card[data-id="'+id+'"], .holi-row[data-id="'+id+'"]');
+      if (c) {
+        c.scrollIntoView({behavior:"smooth", block:"center"});
+        c.style.boxShadow = "0 0 0 3px var(--accent)";
+        c.style.transition = "box-shadow .4s";
+        setTimeout(() => { c.style.boxShadow = ""; }, 3200);
+      }
+    } catch(e) {}
+  }, 2000);
+}
 function applyDeepLink() {
   const p = new URLSearchParams(location.search);
+  const deal = p.get("deal");
+  if (deal) focusDeal(deal);
   const tab = p.get("tab");
   const nav = p.get("nav");
   if (nav === "alerts") { setTimeout(openAlerts, 400); return; }
