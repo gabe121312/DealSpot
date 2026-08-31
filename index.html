@@ -771,7 +771,7 @@ function saveSettings() {
 function saveNotifs() { localStorage.setItem("ds_notifs", JSON.stringify(notifs.slice(0, 50))); }
 
 // ── Language / i18n 🌍 ─────────────────────────────────────────
-const TF_EN = {liveDeals:"{n} live deals",nItems:"{n} items",saveX:"Save {a}",teaserN:"{n} new deals Premium members are seeing right now",goPremium:"Go Premium — {p}",unlockOr:"— or upgrade to see now",teaserEx:"+{n} more deals are exclusive to Premium"};
+const TF_EN = {liveDeals:"{n} live deals",nItems:"{n} items",saveX:"Save {a}",teaserN:"{n} new deals Premium members are seeing right now",goPremium:"Go Premium — {p}",unlockOr:"— or upgrade to see now",teaserEx:"+{n} deals from the last 48h"};
 // If lang.js failed to load, fall back to plain English everywhere.
 const I18N_OK = (typeof DS_LANGS !== "undefined" && typeof DS_T !== "undefined" && typeof DS_TF !== "undefined");
 function curLang(){
@@ -1041,7 +1041,7 @@ function showPremiumModal(justUpgraded) {
         <div class="prem-feat"><span class="fi">🔔</span><span>${TF("featAlertsSub")}</span></div>
         <div class="prem-feat"><span class="fi">🔑</span><span>${TF("featKeywords", FREE_KEYWORD_LIMIT)}</span></div>
         <div class="prem-feat"><span class="fi">🥇</span><span>${T("Supporter badge + NEW badges on the freshest deals")}</span></div>
-        <div class="prem-feat"><span class="fi">🎁</span><span>Exclusive deal feeds — local clearance, travel &amp; marketplace (+75 extra deals)</span></div>
+        <div class="prem-feat"><span class="fi">🎁</span><span>48-hour deal archive — hundreds of extra deals<small>Everything fresh is free; Premium keeps two full days of deals</small></span></div>
       </div>
       <div style="text-align:center;font-size:12.5px;color:var(--text2);margin-bottom:14px">${T("Thank you for supporting DealSpot ❤️")}</div>
       ${premiumCfg.manageUrl ? `<a class="btn btn-ghost btn-block" href="${premiumCfg.manageUrl}" target="_blank" rel="noopener">Manage subscription</a>` : ""}
@@ -1057,7 +1057,7 @@ function showPremiumModal(justUpgraded) {
         <div class="prem-feat"><span class="fi">🔔</span><span>${TF("featAlertsUpsell", em)}</span></div>
         <div class="prem-feat"><span class="fi">🔑</span><span>${TF("featKeywords", FREE_KEYWORD_LIMIT)}</span></div>
         <div class="prem-feat"><span class="fi">👑</span><span>${T("Supporter badge + NEW badges on the freshest deals")}</span></div>
-        <div class="prem-feat"><span class="fi">🎁</span><span>Exclusive deal feeds — local clearance, travel &amp; marketplace (+75 extra deals)<small>Free feeds stay at ~100 deals; Premium unlocks the vault</small></span></div>
+        <div class="prem-feat"><span class="fi">🎁</span><span>48-hour deal archive — hundreds of extra deals<small>All categories are free; Premium adds two full days of history</small></span></div>
       </div>
       ${premiumCfg.enabled
         ? planCardsHtml() + `<div style="text-align:center;font-size:11.5px;color:var(--text2);margin-top:8px">${premiumCfg.provider==="paddle" ? T("Secure checkout by Paddle · cancel any time") : T("Secure payment via Stripe · cancel any time")}</div>`
@@ -1334,7 +1334,7 @@ function render() {
          <div class="pt-body">
            <div class="pt-title">${TF("teaserN", premiumTeaser.count)}</div>
            <div class="pt-sub">${T("Unlocks for you in")} <strong id="teaserCountdown">--:--</strong> ${TF("unlockOr")}</div>
-           ${premiumTeaser.exclusive ? `<div class="pt-sub" style="margin-top:2px">🎁 +${premiumTeaser.exclusive} more deals are <strong>exclusive to Premium</strong></div>` : ""}
+           ${premiumTeaser.archive ? `<div class="pt-sub" style="margin-top:2px">🎁 Premium members also see <strong>+${premiumTeaser.archive} deals from the last 48h</strong></div>` : ""}
          </div>
          <div class="pt-btn">${T("⚡ Upgrade")}</div>
        </div>` : "";
@@ -1629,7 +1629,7 @@ function renderSettings() {
     <div class="group">
       <div style="padding:13px 16px">
         <div class="row-label" style="margin-bottom:4px">Be first in line for every deal 👑</div>
-        <div class="row-sub" style="margin-bottom:10px">Members see new deals <strong>${premiumCfg.earlyMinutes||8} minutes before</strong> everyone else, get instant phone alerts, unlimited keywords — plus <strong>🎁 exclusive feeds</strong>: local clearance, travel &amp; marketplace (+~75 extra deals).</div>
+        <div class="row-sub" style="margin-bottom:10px">Members see new deals <strong>${premiumCfg.earlyMinutes||8} minutes before</strong> everyone else, get instant phone alerts, unlimited keywords — plus the <strong>🎁 48-hour deal archive</strong>: hundreds of extra deals beyond the live feed.</div>
         ${premiumCfg.enabled
           ? planCardsHtml()
           : `<button class="btn btn-primary btn-block" style="opacity:.55" onclick="showToast('Payments coming soon 👷')">⚡ Premium</button>`}
@@ -2340,9 +2340,9 @@ if ("serviceWorker" in navigator) {
 }
 
 // ── "What's new" on update ─────────────────────────────────────
-const APP_VERSION = "3.7.0";
+const APP_VERSION = "3.7.1";
 const CHANGELOG = [
-  { ic:"🎁", t:"Exclusive Premium deal feeds", d:"Premium now unlocks whole extra deal categories: local drugstore/grocery clearance (great with your ZIP), travel deals, and marketplace finds — roughly 75 additional deals on top of the free ~100. Free feeds were also upgraded: real Coupons and Freebies categories, plus proper labels for Bath & Body Works, Nike, Adidas, Old Navy and 20+ fashion & shoe stores." },
+  { ic:"🎁", t:"Bigger feed + 48h Premium archive", d:"Everyone now gets every category — ~175 live deals including coupons, freebies, local clearance, travel and marketplace finds, with proper labels for Bath & Body Works, Nike, Adidas and 20+ fashion stores. Premium adds a rolling 48-hour archive: hundreds of extra deals that scrolled off the live window but may still be alive." },
   { ic:"🎯", t:"Price-target alerts (Premium)", d:"Watching a deal in your Watchlist? Tap 🎯, set your price, and DealSpot pings you the moment it drops under it — on your phone and in the app." },
   { ic:"🖼️", t:"Shareable deal cards", d:"Sharing a deal now creates a beautiful share image with the price slash and discount badge — perfect for stories, WhatsApp and group chats." },
   { ic:"💡", t:"Discount codes", d:"Have a promo code? There's now a hint at checkout — enter it right in the payment window." },

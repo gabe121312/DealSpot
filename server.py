@@ -54,17 +54,17 @@ PORT = int(os.environ.get("PORT", 8080))
 CACHE_TTL = 300
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-FEEDS = [  # FREE — everyone (~100 deals)
+FEEDS = [  # EVERYONE — all categories, ~175 live deals
     "https://feeds.feedburner.com/SlickdealsnetFP",                     # front page
     "https://slickdeals.net/forums/external.php?type=rss2&forumids=9",  # hot deals
     "https://slickdeals.net/forums/external.php?type=rss2&forumids=10", # coupons
     "https://slickdeals.net/forums/external.php?type=rss2&forumids=4",  # freebies
+    "https://slickdeals.net/forums/external.php?type=rss2&forumids=38", # drugstore/grocery B&M clearance (in-store!)
+    "https://slickdeals.net/forums/external.php?type=rss2&forumids=53", # travel deals
+    "https://slickdeals.net/forums/external.php?type=rss2&forumids=177",# marketplace finds
 ]
-PREMIUM_FEEDS = [  # PREMIUM-ONLY — up to ~75 extra deals
-    "https://slickdeals.net/forums/external.php?type=rss2&forumids=38",  # drugstore/grocery B&M clearance (in-store!)
-    "https://slickdeals.net/forums/external.php?type=rss2&forumids=53",  # travel deals
-    "https://slickdeals.net/forums/external.php?type=rss2&forumids=177", # marketplace finds
-]
+ARCHIVE_HOURS = 48  # Premium also sees deals from the last 48h that
+                    # scrolled off the live window (may still be alive!)
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
 
@@ -138,6 +138,7 @@ LOCAL_RE = re.compile(
 ONLINE_RE = re.compile(r"\b(free shipping|free s&?h|prime|online only|online deal|shipped to you)\b", re.I)
 
 _cache = {"data": None, "ts": 0, "ids": set()}
+_archive = {}   # deal id -> deal copy (last_seen kept fresh while in feed)
 _first_seen = {}        # deal id -> first-seen time (ms) — powers Premium early access
 _boot_grace = True      # first load after boot: back-date deals so free users see a full feed
 _delayed_push = []      # deals waiting for the free-users' 8-minute mark
@@ -819,16 +820,11 @@ def broadcast_new_deals(new_deals):
     with _subs_lock:
         subs = list(_subs)
     premium_subs = [s for s in subs if s.get("premium")]
-    exclusive = [d for d in new_deals if d.get("premiumOnly")]
-    base_deals = [d for d in new_deals if not d.get("premiumOnly")]
-    if exclusive and premium_subs:
-        send_matches(premium_subs, exclusive, instant=True)
-    if base_deals:
-        if premium_subs:
-            send_matches(premium_subs, base_deals, instant=True)
-        for d in base_deals:
-            _delayed_push.append({"id": d["id"], "deal": d, "at": time.time() + FREE_DELAY_SEC})
-        _delayed_push[:] = _delayed_push[-200:]
+    if premium_subs:
+        send_matches(premium_subs, new_deals, instant=True)
+    for d in new_deals:
+        _delayed_push.append({"id": d["id"], "deal": d, "at": time.time() + FREE_DELAY_SEC})
+    _delayed_push[:] = _delayed_push[-200:]
 
 
 def flush_delayed_pushes():
@@ -1001,17 +997,26 @@ def load_live_deals(force=False):
         if not force and _cache["data"] and time.time() - _cache["ts"] < CACHE_TTL:
             return _cache["data"], False
         all_deals, seen = [], set()
-        for feed in FEEDS + PREMIUM_FEEDS:
-            premium_only = feed in PREMIUM_FEEDS
+        for feed in FEEDS:
             try:
                 raw = fetch_url(feed)
                 for d in parse_feed(raw):
                     if d["id"] not in seen:
                         seen.add(d["id"])
-                        d["premiumOnly"] = premium_only
                         all_deals.append(d)
             except Exception as e:
                 print(f"[warn] feed failed {feed}: {e}")
+        # 48h rolling archive (premium depth): refresh survivors, add new
+        now = time.time()
+        for d in all_deals:
+            prev = _archive.get(d["id"])
+            if prev is None:
+                _archive[d["id"]] = dict(d, _last_seen=now)
+            else:
+                prev["_last_seen"] = now
+                prev.update({k: d[k] for k in ("name", "sale", "orig", "url", "img", "votes") if k in d})
+        for aid in [k for k, v in _archive.items() if now - v.get("_last_seen", 0) > ARCHIVE_HOURS * 3600]:
+            _archive.pop(aid, None)
         if all_deals:
             apply_link_fallbacks(all_deals)
             now_ms = int(time.time() * 1000)
@@ -1165,6 +1170,14 @@ class Handler(SimpleHTTPRequestHandler):
                 token = (qs.get("pt") or [self.headers.get("X-Premium-Token", "")])[0]
                 payload = verify_premium_token(token)
                 deals, _ = load_live_deals(force=force)
+                if payload:
+                    # Premium depth: current window + still-alive archive deals
+                    cur_ids = {d["id"] for d in deals}
+                    extra = [dict(v) for k, v in _archive.items() if k not in cur_ids]
+                    extra.sort(key=lambda d: d.get("firstSeen", 0), reverse=True)
+                    for d in extra:
+                        d["archived"] = True
+                    deals = deals + extra[:220]
                 with _votes_lock:
                     for d in deals:
                         d["votes"] = _votes.get(d["id"]) or {"fire": 0, "dead": 0}
@@ -1182,12 +1195,8 @@ class Handler(SimpleHTTPRequestHandler):
                        "updated": int(_cache["ts"] * 1000),
                        "source": "Slickdeals live RSS", "premium": bool(payload)}
                 if not payload:
-                    # Free user: exclusive premium-feed deals are hidden entirely,
-                    # and brand-new deals wait out the early-access window.
-                    exclusive = [d for d in deals if d.get("premiumOnly")]
-                    deals = [d for d in deals if not d.get("premiumOnly")]
-                    out["deals"] = deals
-                    out["count"] = len(deals)
+                    # Free user: the FULL current feed (all categories) — but new
+                    # deals wait out the early-access window.
                     now_ms = int(time.time() * 1000)
                     fresh = [d for d in deals
                              if now_ms - d.get("firstSeen", 0) < FREE_DELAY_SEC * 1000]
@@ -1199,11 +1208,10 @@ class Handler(SimpleHTTPRequestHandler):
                             "count": len(fresh),
                             "unlockAt": min(d.get("firstSeen", 0) for d in fresh) + FREE_DELAY_SEC * 1000,
                         }
-                        if exclusive:
-                            teaser["exclusive"] = len(exclusive)
                         out["premiumTeaser"] = teaser
-                    elif exclusive:
-                        out["premiumTeaser"] = {"count": 0, "exclusive": len(exclusive), "unlockAt": 0}
+                    if not fresh:
+                        out["premiumTeaser"] = {"count": 0, "unlockAt": 0}
+                    out["premiumTeaser"]["archive"] = max(0, len(_archive) - len(deals))
                 self._json(out)
             except Exception as e:
                 self._json({"error": str(e), "deals": []}, 502)
