@@ -55,8 +55,12 @@ CACHE_TTL = 300
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 FEEDS = [
-    "https://feeds.feedburner.com/SlickdealsnetFP",
-    "https://slickdeals.net/forums/external.php?type=rss2&forumids=9",
+    # 5 sources x ~25 deals each = 100+ live deals (deduped by id)
+    "https://feeds.feedburner.com/SlickdealsnetFP",                          # front page
+    "https://slickdeals.net/forums/external.php?type=rss2&forumids=9",       # hot deals
+    "https://slickdeals.net/forums/external.php?type=rss2&forumids=10,30",   # coupons + travel
+    "https://slickdeals.net/forums/external.php?type=rss2&forumids=39,53,55",# computers + phones + TV
+    "https://slickdeals.net/forums/external.php?type=rss2&forumids=13,15,64",# drugstore + freebies + sports
 ]
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
@@ -1076,9 +1080,10 @@ def apply_link_fallbacks(deals):
 
 
 def background_refresh_loop():
-    """Refresh the feed every minute and push truly-new matching deals."""
+    """Refresh feeds and push truly-new matching deals.
+    90s cadence: fast for humans, polite for Slickdeals (5 feeds)."""
     while True:
-        time.sleep(60)
+        time.sleep(90)
         try:
             flush_delayed_pushes()
             before_ids = set(_cache["ids"])
