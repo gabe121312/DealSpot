@@ -220,6 +220,9 @@ REFUND_EMAIL = os.environ.get("REFUND_EMAIL", "")      # shown in Billing & Refu
 STATS_KEY = os.environ.get("STATS_KEY", "")             # secret word to open /panel
 
 # ── Owner stats (anonymous counts only) ─────────────────────────────────
+FEEDBACK_FILE = os.path.join(HERE, "feedback.json")
+_feedback = []   # newest last: {t: type, m: message, e: email?, ts}
+_fb_lock = threading.Lock()
 STATS_FILE = os.path.join(HERE, "stats.json")
 _stats = {}      # "YYYY-MM-DD" -> {loads, vids[], premium_views, check_m, check_y, purchases, stores{}}
 _stats_lock = threading.Lock()
@@ -415,6 +418,24 @@ def _panel_html(key):
                    f"<td><div class='bar' style='width:{int(n/mx*100)}%'></div></td>"
                    f"<td style='text-align:right;width:46px'><b>{n}</b></td></tr>" for st, n in top) or "<tr><td colspan=3>No store taps yet</td></tr>"
     conv = (lambda a, b: f"{(100*a/b):.0f}%" if b else "—")
+    fb_items = list(_feedback[-30:]); fb_items.reverse()
+    TYPES = {"idea": "💡 Suggestion", "bug": "🐛 Problem", "love": "💜 Love note"}
+    if fb_items:
+        parts = []
+        for x in fb_items:
+            t = TYPES.get(x.get("t"), "💡")
+            when = time.strftime("%b %d %H:%M", time.localtime(x["ts"] / 1000))
+            mail = ""
+            if x.get("e"):
+                mail = " &middot; <a href='mailto:" + x["e"] + "' style='color:#a78bfa'>" + x["e"] + "</a>"
+            msg = str(x.get("m", "")).replace("<", "&lt;").replace(">", "&gt;")
+            parts.append("<div class='card' style='margin-bottom:8px'><div style='font-size:11px;color:#9ca3af'>"
+                         + t + " &middot; " + when + mail
+                         + "</div><div style='font-size:13.5px;margin-top:5px;line-height:1.5'>" + msg
+                         + "</div></div>")
+        fb_html = "".join(parts)
+    else:
+        fb_html = "<div class='card'>No feedback yet &mdash; it'll land here the moment someone sends it 💜</div>"
     html = ("<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width,initial-scale'>"
             "<meta name='robots' content='noindex'>" + _panel_style() + "</head><body>"
             "<h1>📊 DealSpot Owner Panel</h1>"
@@ -438,7 +459,8 @@ def _panel_html(key):
             + rows7 + "</table>"
             "<h2>🏬 Most-tapped stores (all-time)</h2>"
             "<table>" + bars + "</table>"
-            "<h2>🌍 Top languages (all-time opens)</h2>"
+            f"<h2>💡 Customer feedback ({len(_feedback)})</h2>" + fb_html
+            + "<h2>🌍 Top languages (all-time opens)</h2>"
             "<table>" + lang_rows + "</table>"
             "<div class='note'>All numbers are anonymous counts — no personal data is stored. "
             "Stats reset if the free-tier server restarts (last 60 days kept while awake).</div>"
@@ -541,6 +563,24 @@ def mark_target_sent(endpoint, deal_id):
             os.replace(tmp, TARGETS_SENT_FILE)
         except Exception:
             pass
+
+
+def load_feedback():
+    try:
+        with open(FEEDBACK_FILE) as f:
+            _feedback[:] = json.load(f)[-300:]
+    except Exception:
+        pass
+
+
+def save_feedback():
+    try:
+        tmp = FEEDBACK_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(_feedback, f)
+        os.replace(tmp, FEEDBACK_FILE)
+    except Exception as e:
+        print("[feedback] save failed:", e)
 
 
 def load_stats():
@@ -957,15 +997,42 @@ def extract_prices(text):
 
 
 def categorize(text):
+    """Sort every deal into a department. Order matters: most specific first."""
     t = text.lower()
-    tech_kw = ["tv","laptop","headphone","earbud","phone","tablet","ipad","macbook",
-               "console","xbox","playstation","nintendo","switch","monitor","camera",
-               "speaker","smartwatch","router","ssd","gpu","cpu","gaming","mouse",
-               "keyboard","charger","vacuum robot"]
-    home_kw = ["vacuum","cookware","mattress","towel","coffee","air fryer","instant pot",
-               "grill","sofa","lamp","kitchen","blender","pressure cooker","stand mixer","knife"]
     if re.search(r"\b(coupon|promo code|promo|discount code|voucher|rebate|\d+% off (your |sitewide|any |order)|\$?\d+ off (your |orders? |purchases? |sitewide)|code:? ?[A-Z0-9]{4,})", t):
         return "coupon"
+    CATS = [
+        ("gaming", ["gaming", "xbox", "playstation", "ps5", "nintendo", "switch", "console",
+                    "video game", "steam", "gamestop", "controller", "dualsense", "lego"]),
+        ("shoes", ["shoes", "sneaker", "boots", "sandal", "slipper", "heels", "cleats",
+                   "air max", "jordan", "samba", "crocs", "footwear"]),
+        ("beauty", ["beauty", "skincare", "skin care", "serum", "makeup", "lipstick", "mascara",
+                    "fragrance", "perfume", "cologne", "shampoo", "conditioner", "moisturizer",
+                    "cleanser", "sunscreen", "deodorant", "cosmetic", "bath & body", "bath and body",
+                    "lotion", "toner", "nail polish", "dyson airwrap"]),
+        ("pets", ["pet ", " dog ", " cat ", "puppy", "kitten", "litter", "dog food", "cat food",
+                  "dog toy", "petsmart", "petco", "chewy"]),
+        ("tools", ["tool", "drill", "wrench", "socket set", "sander", "dewalt", "milwaukee",
+                   "makita", "craftsman", "tool box", "toolbox", "workbench", "ladder",
+                   "tire", "auto ", "car care", "oil change", "wiper"]),
+        ("fashion", ["shirt", "jacket", "jeans", "dress", "hoodie", "t-shirt", "tee", "polo",
+                     "sweater", "pants", "shorts", "swimsuit", "pajama", "socks", "underwear",
+                     "coat", "blazer", "leggings", "tank top", "apparel", "clothing", "sneaker app",
+                     "bathrobe", "sweatsuit"]),
+        ("grocery", ["grocery", "groceries", "snack", "cereal", "soda", "coffee", "tea ", "protein bar",
+                     "chocolate", "candy", "meat", "frozen", "food", "k-cup", "keurig", "espresso"]),
+    ]
+    for cat, kws in CATS:
+        if any(k in t for k in kws):
+            return cat
+    tech_kw = ["tv", "laptop", "headphone", "earbud", "phone", "tablet", "ipad", "macbook",
+               "monitor", "camera", "speaker", "smartwatch", "router", "ssd", "gpu", "cpu",
+               "mouse", "keyboard", "charger", "vacuum robot", "usb", "smart", "watch", "airpods",
+               "iphone", "android", "galaxy", "pixel"]
+    home_kw = ["vacuum", "cookware", "mattress", "towel", "air fryer", "instant pot",
+               "grill", "sofa", "lamp", "kitchen", "blender", "pressure cooker", "stand mixer",
+               "knife", "furniture", "bedding", "sheets", "curtain", "rug", "decor", "candle",
+               "storage", "humidifier", "fan ", "heater"]
     if any(k in t for k in tech_kw): return "tech"
     if any(k in t for k in home_kw): return "home"
     return "other"
@@ -1370,6 +1437,27 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         p = urlparse(self.path)
+        if p.path == "/api/feedback":
+            length = int(self.headers.get("Content-Length", 0))
+            try:
+                data = json.loads(self.rfile.read(length) or b"{}")
+            except Exception:
+                self._json({"ok": False, "error": "bad json"}, 400); return
+            msg = str(data.get("m", "")).strip()[:1200]
+            ftype = str(data.get("t", "idea"))[:12]
+            email = str(data.get("e", "")).strip().lower()[:120]
+            if len(msg) < 5:
+                self._json({"ok": False, "error": "Tell us a little more (5+ characters)"}, 400); return
+            if email and not EMAIL_RE.match(email):
+                self._json({"ok": False, "error": "That email doesn't look right (or leave it empty)"}, 400); return
+            with _fb_lock:
+                _feedback.append({"t": ftype if ftype in ("idea", "bug", "love") else "idea",
+                                  "m": msg, "e": email, "ts": int(time.time() * 1000)})
+                if len(_feedback) > 300:
+                    _feedback[:] = _feedback[-300:]
+                save_feedback()
+            print(f"[feedback] received ({ftype}) via app: {msg[:60]}")
+            self._json({"ok": True}); return
         if p.path == "/api/stats/e":
             length = int(self.headers.get("Content-Length", 0))
             try:
@@ -1541,6 +1629,7 @@ if __name__ == "__main__":
     load_translations()
     load_stats()
     load_targets_sent()
+    load_feedback()
     print(f"DealSpot running at http://0.0.0.0:{PORT}")
     print(f"[push] available: {HAS_PUSH} | subscribers: {len(_subs)} | "
           f"public key: {VAPID_PUBLIC[:16]}…")

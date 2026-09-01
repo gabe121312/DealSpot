@@ -305,6 +305,16 @@
   .vote-row { display:flex; align-items:center; gap:7px; margin-top:9px; padding-top:8px; border-top:1px dashed var(--border); }
   .vote-q { font-size:11px; color:var(--text2); font-weight:600; margin-right:auto; }
 
+  /* ── Feedback box 💡 ── */
+  .fb-card { background:linear-gradient(135deg,rgba(108,92,231,.08),rgba(139,92,246,.05)); border:1.5px solid rgba(108,92,231,.3); border-radius:14px; padding:14px 16px; margin:0 2px 14px; }
+  .fb-types { display:flex; gap:7px; margin:10px 0; }
+  .fb-type { flex:1; padding:9px 6px; border-radius:11px; border:1.5px solid var(--border); background:var(--card2); color:var(--text2); font-size:11.5px; font-weight:800; cursor:pointer; font-family:inherit; }
+  .fb-type.on { border-color:var(--accent); background:rgba(108,92,231,.12); color:var(--accent); }
+  .fb-msg { width:100%; min-height:88px; border:1.5px solid var(--border); border-radius:11px; background:var(--card2); color:var(--text); font-size:16px; font-family:inherit; padding:11px 13px; resize:vertical; outline:none; }
+  .fb-msg:focus { border-color:var(--accent); }
+  .fb-row { display:flex; gap:8px; margin-top:9px; }
+  .fb-row input { flex:1; padding:10px 13px; border:1.5px solid var(--border); border-radius:10px; background:var(--card2); color:var(--text); font-size:16px; font-family:inherit; outline:none; }
+
   /* ── Refund contact options ── */
   .refund-options { display:flex; flex-direction:column; gap:10px; margin-bottom:2px; }
   .refund-opt { display:flex; align-items:center; gap:11px; padding:13px 14px; border-radius:14px; text-decoration:none;
@@ -524,8 +534,15 @@
     <button class="chip" data-filter="30">30%+ Off</button>
     <button class="chip" data-filter="20">20%+ Off</button>
     <button class="chip" data-filter="coupon">🏷 Coupons</button>
-    <button class="chip" data-filter="tech">Tech</button>
-    <button class="chip" data-filter="home">Home</button>
+    <button class="chip" data-filter="tech">💻 Tech</button>
+    <button class="chip" data-filter="gaming">🎮 Gaming</button>
+    <button class="chip" data-filter="fashion">👕 Fashion</button>
+    <button class="chip" data-filter="shoes">👟 Shoes</button>
+    <button class="chip" data-filter="beauty">💄 Beauty</button>
+    <button class="chip" data-filter="home">🏠 Home</button>
+    <button class="chip" data-filter="tools">🧰 Tools</button>
+    <button class="chip" data-filter="grocery">🛒 Grocery</button>
+    <button class="chip" data-filter="pets">🐾 Pets</button>
   </div>
 
   <div class="ptr" id="ptr">⬇️ Pull down to refresh</div>
@@ -1288,8 +1305,8 @@ function getFiltered() {
   if (currentFilter === "50") list = list.filter(d => pct(d) >= 50);
   else if (currentFilter === "30") list = list.filter(d => pct(d) >= 30);
   else if (currentFilter === "20") list = list.filter(d => pct(d) >= 20);
-  else if (currentFilter === "coupon") list = list.filter(d => d.cat === "coupon");
-  else if (currentFilter === "tech" || currentFilter === "home") list = list.filter(d => d.cat === currentFilter);
+  else if (["coupon","tech","home","gaming","fashion","shoes","beauty","tools","grocery","pets"].includes(currentFilter))
+    list = list.filter(d => d.cat === currentFilter);
   const q = document.getElementById("search").value.trim().toLowerCase();
   if (q) list = list.filter(d => d.name.toLowerCase().includes(q));
   list.sort((a,b) => {
@@ -1801,6 +1818,23 @@ function renderSettings() {
       <button class="btn btn-danger btn-block" onclick="resetAll()">Reset everything</button>
     </div>
 
+    <div class="group-title">💡 Talk to Gabe</div>
+    <div class="fb-card">
+      <div class="row-label">Have an idea? Found a bug? Just want to say hi?</div>
+      <div class="row-sub" style="margin-bottom:2px">You're talking straight to the guy who built DealSpot — I read every message.</div>
+      <div class="fb-types">
+        <button class="fb-type on" id="fbt-idea" onclick="setFbType('idea')">💡 Idea</button>
+        <button class="fb-type" id="fbt-bug" onclick="setFbType('bug')">🐛 Problem</button>
+        <button class="fb-type" id="fbt-love" onclick="setFbType('love')">💜 Love it</button>
+      </div>
+      <textarea class="fb-msg" id="fbMsg" placeholder="Tell me what you think… (what should DealSpot do next? what's broken? what do you love?)"></textarea>
+      <div class="fb-row">
+        <input type="email" id="fbEmail" placeholder="Your email (optional — only if you want a reply)" inputmode="email">
+        <button class="btn btn-primary" style="padding:0 18px;flex:none" onclick="sendFeedback()">Send 💸</button>
+      </div>
+      <button class="btn btn-ghost btn-block" style="margin-top:9px" onclick="emailGabe()">✉️ Or email me directly instead</button>
+    </div>
+
     <div class="group-title">About</div>
     <div class="group" style="padding:14px 16px">
       <div class="maker-card">
@@ -2022,6 +2056,30 @@ function removeTarget(id){
   try { localStorage.setItem("ds_targets", JSON.stringify(priceTargets)); } catch(e) {}
   closeTargetModal(); syncPushPrefs(); render();
   showToast("Target removed");
+}
+let fbType = "idea";
+function setFbType(t){
+  fbType = t;
+  ["idea","bug","love"].forEach(k => { const b = document.getElementById("fbt-"+k); if (b) b.classList.toggle("on", k === t); });
+}
+async function sendFeedback(){
+  const m = (document.getElementById("fbMsg").value || "").trim();
+  const e = (document.getElementById("fbEmail").value || "").trim();
+  if (m.length < 5) { showToast("Write a little more first ✍️"); return; }
+  try {
+    const r = await fetch("/api/feedback", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({t: fbType, m: m, e: e})});
+    const d = await r.json();
+    if (d.ok) {
+      document.getElementById("fbMsg").value = "";
+      showToast(fbType === "love" ? "💜 Sent — you just made my day!" : "💡 Sent — thank you!");
+    } else showToast(d.error || "Couldn't send — try again");
+  } catch(err) { showToast("Network hiccup — try again"); }
+}
+function emailGabe(){
+  if (!premiumCfg.refundEmail) { showToast("Email coming soon — use Send above 💡"); return; }
+  const subj = encodeURIComponent("DealSpot " + (fbType === "bug" ? "problem report" : fbType === "love" ? "love note" : "suggestion"));
+  window.location.href = "mailto:" + premiumCfg.refundEmail + "?subject=" + subj;
 }
 function doRestore(){
   const inp = document.getElementById("restoreInput");
@@ -2344,8 +2402,10 @@ if ("serviceWorker" in navigator) {
 }
 
 // ── "What's new" on update ─────────────────────────────────────
-const APP_VERSION = "3.7.2";
+const APP_VERSION = "3.9.0";
 const CHANGELOG = [
+  { ic:"🏬", t:"Department browsing", d:"Deals are now organized into real departments — 💻 Tech, 🎮 Gaming, 👕 Fashion, 👟 Shoes, 💄 Beauty, 🏠 Home, 🧰 Tools (incl. auto), 🛒 Grocery and 🐾 Pets — plus 🏷 Coupons. Scroll the filter row and shop your aisle." },
+  { ic:"💡", t:"Talk to Gabe", d:"New in Settings: send ideas, report problems, or leave a love note straight to the guy who built DealSpot — with an optional reply email. Every message gets read." },
   { ic:"🏷️", t:"45+ new store labels & coupon filter", d:"Deals from Sephora, PetSmart, Staples, Anker, Harbor Freight, GameStop, PlayStation, Samsung, IKEA, LEGO and 35+ more now show their real store name instead of “Other”. Plus a new 🏷 Coupons filter chip for promo codes and dollar-off deals." },
   { ic:"🎁", t:"Bigger feed + 48h Premium archive", d:"Everyone now gets every category — ~175 live deals including coupons, freebies, local clearance, travel and marketplace finds, with proper labels for Bath & Body Works, Nike, Adidas and 20+ fashion stores. Premium adds a rolling 48-hour archive: hundreds of extra deals that scrolled off the live window but may still be alive." },
   { ic:"🎯", t:"Price-target alerts (Premium)", d:"Watching a deal in your Watchlist? Tap 🎯, set your price, and DealSpot pings you the moment it drops under it — on your phone and in the app." },
